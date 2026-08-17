@@ -125,13 +125,14 @@ Der Unterschied zwischen 3 und 4 ist beabsichtigt: Bei einer **Störung** ist ei
 alter Inhalt besser als keiner. Bei einer **klaren Absage** des Servers wäre es
 falsch, weiter alte Inhalte zu zeigen.
 
-Fallback-Dateien liegen unter `storage/app/consentlaw/` und enthalten den
+Fallback-Dateien liegen auf der konfigurierten Disk unter `consentlaw/` (beim
+Standard-Disk `local` ist das `storage/app/private/consentlaw/`) und enthalten den
 Token-Hash im Namen – nach einem Token-Wechsel werden keine fremden Inhalte
 wiederverwendet.
 
 ### Nach dem Deploy vorwärmen
 
-`storage/` ist üblicherweise nicht im Git. Damit direkt nach einem Deploy ein
+Der `storage/`-Ordner ist üblicherweise nicht im Git. Damit direkt nach einem Deploy ein
 Fallback-Stand bereitliegt:
 
 ```bash
