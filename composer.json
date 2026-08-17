@@ -1,0 +1,62 @@
+{
+    "name": "ithilbert/consentlaw-client",
+    "type": "library",
+    "license": "MIT",
+    "description": "Client für die consentLaw-API – ruft Rechtstexte (Impressum, Datenschutz, AGB, Cookie-Richtlinie, AVV) und Stellenangebote ab und liefert sie als Blade-Komponenten aus. Mit Cache und ausfallsicherem Fallback.",
+    "keywords": [
+        "it-hilbert",
+        "laravel",
+        "consentlaw",
+        "client",
+        "dsgvo",
+        "gdpr",
+        "legal",
+        "jobs"
+    ],
+    "authors": [
+        {
+            "name": "Jörg Hilbert",
+            "homepage": "https://www.it-hilbert.com",
+            "role": "Developer"
+        }
+    ],
+    "homepage": "https://www.it-hilbert.com",
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.5",
+        "illuminate/support": "^11.0 || ^12.0",
+        "illuminate/http": "^11.0 || ^12.0",
+        "illuminate/cache": "^11.0 || ^12.0",
+        "illuminate/filesystem": "^11.0 || ^12.0",
+        "illuminate/view": "^11.0 || ^12.0",
+        "illuminate/routing": "^11.0 || ^12.0",
+        "illuminate/console": "^11.0 || ^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0 || ^10.0",
+        "phpunit/phpunit": "^11.0 || ^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ITHilbert\\ConsentLaw\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ITHilbert\\ConsentLaw\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ITHilbert\\ConsentLaw\\ConsentLawServiceProvider"
+            ],
+            "aliases": {
+                "ConsentLaw": "ITHilbert\\ConsentLaw\\Facades\\ConsentLaw"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
