@@ -21,6 +21,10 @@ use Throwable;
  * Nur 404 gilt als klare Aussage des Servers („nicht veröffentlicht“,
  * ConsentLawResponseException). Jeder andere Fehlerstatus wird wie eine Störung
  * behandelt (ConsentLawUnavailableException).
+ *
+ * Der Token steht im URL-Pfad und darf in keiner Meldung stehen (auch nicht in der
+ * von Guzzle/cURL): Meldungen nennen die URL nur mit maskiertem Token, fremde Meldungen
+ * werden bereinigt, und die fremde Exception wird nicht als `previous` durchgereicht.
  */
 final readonly class HttpTransport implements Transport
 {
@@ -36,6 +40,8 @@ final readonly class HttpTransport implements Transport
     public function get(string $endpoint, array $query = []): array
     {
         $url = rtrim($this->baseUrl, '/').'/'.ltrim($endpoint, '/');
+        $token = TokenMaskierung::ausEndpunkt($endpoint);
+        $anzeigeUrl = TokenMaskierung::bereinige($url, $token);
 
         try {
             $request = $this->http
@@ -60,17 +66,17 @@ final readonly class HttpTransport implements Transport
             ));
         } catch (ConnectionException $e) {
             throw new ConsentLawUnavailableException(
-                "consentLaw ist nicht erreichbar ({$url}): {$e->getMessage()}"
+                "consentLaw ist nicht erreichbar ({$anzeigeUrl}): ".TokenMaskierung::bereinige($e->getMessage(), $token)
             );
         } catch (Throwable $e) {
             throw new ConsentLawUnavailableException(
-                "Unerwarteter Transportfehler bei {$url}: {$e->getMessage()}"
+                "Unerwarteter Transportfehler bei {$anzeigeUrl}: ".TokenMaskierung::bereinige($e->getMessage(), $token)
             );
         }
 
         if ($response->status() === 404) {
             throw new ConsentLawResponseException(
-                "consentLaw: Token ungültig oder Inhalt nicht veröffentlicht ({$url}).",
+                "consentLaw: Token ungültig oder Inhalt nicht veröffentlicht ({$anzeigeUrl}).",
                 404,
             );
         }
@@ -79,7 +85,7 @@ final readonly class HttpTransport implements Transport
             // Jeder andere Fehlerstatus (5xx, 429, 401, 403 …) ist keine Aussage über den
             // Inhalt, sondern eine Störung – der Fallback soll greifen.
             throw new ConsentLawUnavailableException(
-                "consentLaw antwortete mit Status {$response->status()} ({$url})."
+                "consentLaw antwortete mit Status {$response->status()} ({$anzeigeUrl})."
             );
         }
 
@@ -87,7 +93,7 @@ final readonly class HttpTransport implements Transport
 
         if (! is_array($data)) {
             throw new ConsentLawResponseException(
-                "consentLaw lieferte keine gültige JSON-Antwort ({$url}).",
+                "consentLaw lieferte keine gültige JSON-Antwort ({$anzeigeUrl}).",
                 $response->status(),
             );
         }

@@ -199,6 +199,15 @@ Job-Beschreibungen (`description_format`). Die Normalisierung passiert an einer 
 (`ITHilbert\ConsentLaw\Data\Inhaltsformat::ausApi()`); die Properties `format` und
 `descriptionFormat` liefern danach immer `markdown` oder `html`.
 
+**Zeilenumbrüche:** consentLaw pflegt Texte zeilenweise (z. B. Adressblöcke). Deshalb
+gilt bei Markdown ein einfacher Zeilenumbruch (`\n` oder `\r\n`) als Zeilenumbruch und
+wird als `<br />` ausgegeben – nicht als Leerzeichen wie im CommonMark-Standard. Eine
+Leerzeile trennt weiterhin Absätze (`<p>`); Listen, Überschriften, Tabellen und
+Code-Blöcke bleiben unverändert. Zwei Leerzeichen oder ein Backslash am Zeilenende sowie
+ein `<br>` vor dem Zeilenende ergeben ebenfalls genau **ein** `<br />`. Das gilt an allen
+Ausgabestellen (Dokumente, Job-Beschreibungen, JSON-LD). Inhalte mit `format: html`
+sind nicht betroffen.
+
 ## Sicherheit der Markdown-Ausgabe
 
 Markdown aus consentLaw wird an **einer** Stelle gerendert
@@ -208,12 +217,29 @@ Komponenten, den Fertig-Seiten und dem JSON-LD der Jobs. Der Renderer filtert:
 - Rohes HTML (`<script>`, `<iframe>`, `<img onerror=…>`, Event-Handler) wird **entfernt**,
   nicht escaped.
 - Unsichere Link-Ziele (`javascript:`, `data:`, `vbscript:`) werden entfernt.
-- `<br>`, `<br/>` und `<br />` bleiben als Zeilenumbruch erhalten.
+- `<br>`, `<br/>` und `<br />` bleiben als Zeilenumbruch erhalten; einfache Zeilenumbrüche
+  werden ebenfalls zu `<br />` (siehe „Format der Inhalte“).
 - GitHub-Flavored Markdown (Tabellen, Durchgestrichenes, Autolinks) wird unterstützt.
 
 Wer Markdown in eigenem Markup ausgibt, nutzt denselben Renderer statt `Str::markdown()`.
 Inhalte mit `format: html` werden **nicht** durch den Renderer geschickt – consentLaw
 filtert HTML beim Speichern.
+
+## Sicherheit des Tokens
+
+Der Domain-Token steht im URL-Pfad der API (`api/impressum/<token>`) und ist ein
+Geheimnis. Er erscheint **nie** im Klartext in Exception-Meldungen, Log-Einträgen oder
+der Ausgabe von `consentlaw:warm`. Die Maskierung passiert an einer Stelle
+(`ITHilbert\ConsentLaw\Support\TokenMaskierung`, genutzt vom `HttpTransport`) und gilt
+auch für Meldungen fremder Bibliotheken (Guzzle/cURL nennen die vollständige URL):
+
+- URLs erscheinen mit maskiertem Token, z. B. `…/api/impressum/abcd…` – höchstens die
+  ersten 4 Zeichen bleiben sichtbar.
+- Tokens mit bis zu 4 Zeichen werden vollständig maskiert (`***`).
+- Die URL ohne Token bleibt zur Diagnose in der Meldung.
+
+Wer eine Logzeile mit Token aus einer älteren Version findet: Token in consentLaw
+rotieren (Aufgabe des Betreibers) und alte Logs bereinigen.
 
 ## Anpassbare Views
 
@@ -232,6 +258,17 @@ ServiceProvider:
 ```php
 $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 ```
+
+## Upgrade auf 1.1
+
+- **Verhaltensänderung:** Ein einfacher Zeilenumbruch im Markdown wird jetzt als
+  `<br />` ausgegeben (vorher: Leerzeichen, Text lief in einer Zeile zusammen). Texte, die
+  über mehrere Zeilen umbrochen im Markdown stehen (Fließtext mit fester
+  Zeilenbreite), erscheinen dadurch mit Zeilenumbrüchen – Absätze gehören in consentLaw
+  durch Leerzeilen getrennt. Betroffen sind Dokumente, Job-Beschreibungen und JSON-LD.
+  Eigene, veröffentlichte Views müssen nicht angepasst werden.
+- Der Token wird in Exception-Meldungen und Logs maskiert (siehe „Sicherheit des Tokens“).
+  Code, der den Token aus Meldungen herausliest, funktioniert nicht mehr.
 
 ## Upgrade auf 1.0
 
