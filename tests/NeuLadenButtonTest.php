@@ -7,6 +7,7 @@ namespace ITHilbert\ConsentLaw\Tests;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
+use Illuminate\Http\Client\Request;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Route;
@@ -16,7 +17,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
- * Button „Neu laden" (Release 1.2.0) – AK1 bis AK6 aus
+ * Button „Neu laden" (Release 1.2.0) – AK1 bis AK7 aus
  * .project/features/neu-laden-button/spec.md.
  *
  * VERTRAG (neu, noch nicht vorhanden – der Coder baut danach):
@@ -122,7 +123,7 @@ final class NeuLadenButtonTest extends AppTestCase
     /**
      * Schickt einen POST an die Neu-laden-Route durch Router und Middleware.
      *
-     * @param  array<string, string>  $eingabe  zusätzliche Formularfelder
+     * @param  array<string, mixed>  $eingabe  zusätzliche Formularfelder (auch Arrays, z. B. für manipulierte `locale`)
      * @param  array<string, string>  $kopf  zusätzliche Server-Variablen (z. B. HTTP_REFERER, REMOTE_ADDR)
      * @return array{0: int, 1: ?SymfonyResponse} Status und (bei Erfolg) die Antwort
      */
@@ -549,6 +550,233 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->assertStringContainsString(self::NEU, $this->rendere('<x-consentlaw::agb />'));
     }
 
+    // ── AK4: Sprachvariante (locale) ─────────────────────────────────────────
+
+    /** Fake-API, die je nach `locale` in der URL einen anderen Text liefert. */
+    private function apiMehrsprachig(string $de, string $en): void
+    {
+        $this->api(['*' => fn (Request $anfrage): array => $this->dokumentPayload(
+            str_contains($anfrage->url(), 'locale=en') ? $en : $de,
+        )]);
+    }
+
+    /** Liefert das versteckte Feld `locale` des Formulars (oder null). */
+    private function localeFeld(DOMElement $form): ?DOMElement
+    {
+        $felder = (new DOMXPath($form->ownerDocument))->query('.//input[@type="hidden"][@name="locale"]', $form);
+
+        return $felder->length === 0 ? null : $felder->item(0);
+    }
+
+    // AK4
+    #[DataProvider('dokumentTypen')]
+    public function test_kurzform_mit_locale_uebermittelt_die_sprache_als_verstecktes_feld(string $typ): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $form = $this->assertButtonFuer($typ, $this->rendere("<x-consentlaw::{$typ} locale=\"en\" />"));
+
+        $feld = $this->localeFeld($form);
+        $this->assertNotNull($feld, 'Verstecktes Feld `locale` fehlt im Formular.');
+        $this->assertSame('en', $feld->getAttribute('value'));
+    }
+
+    // AK4
+    public function test_document_komponente_mit_locale_uebermittelt_die_sprache(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $form = $this->assertButtonFuer('impressum', $this->rendere('<x-consentlaw::document type="impressum" locale="en" />'));
+
+        $this->assertSame('en', $this->localeFeld($form)?->getAttribute('value'));
+    }
+
+    // AK4
+    public function test_jobs_komponente_mit_locale_uebermittelt_die_sprache(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $this->sessionToken();
+
+        $form = $this->assertButtonFuer('jobs', $this->rendere('<x-consentlaw::jobs locale="en" />'));
+
+        $this->assertSame('en', $this->localeFeld($form)?->getAttribute('value'));
+    }
+
+    // AK4
+    public function test_locale_feld_erscheint_auch_im_slot_fall(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => 404]);
+        $this->sessionToken();
+
+        $impressum = $this->assertButtonFuer('impressum', $this->rendere('<x-consentlaw::impressum locale="en">Slot</x-consentlaw::impressum>'));
+        $jobs = $this->assertButtonFuer('jobs', $this->rendere('<x-consentlaw::jobs locale="en">Slot</x-consentlaw::jobs>'));
+
+        $this->assertSame('en', $this->localeFeld($impressum)?->getAttribute('value'));
+        $this->assertSame('en', $this->localeFeld($jobs)?->getAttribute('value'));
+    }
+
+    // AK4
+    public function test_ohne_locale_attribut_gibt_es_kein_locale_feld(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $dokument = $this->assertButtonFuer('impressum', $this->rendere('<x-consentlaw::impressum />'));
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $jobs = $this->assertButtonFuer('jobs', $this->rendere('<x-consentlaw::jobs />'));
+
+        $this->assertNull($this->localeFeld($dokument), 'Ohne locale-Attribut darf es kein `locale`-Feld geben.');
+        $this->assertNull($this->localeFeld($jobs), 'Ohne locale-Attribut darf es kein `locale`-Feld geben.');
+    }
+
+    // AK4
+    public function test_neu_laden_mit_locale_holt_genau_diese_sprachvariante_und_laesst_die_standardvariante_unberuehrt(): void
+    {
+        $this->freigeben();
+        $this->apiMehrsprachig('ALT-DE', 'ALT-EN');
+        $this->assertStringContainsString('ALT-DE', $this->rendere('<x-consentlaw::impressum />'));
+        $this->assertStringContainsString('ALT-EN', $this->rendere('<x-consentlaw::impressum locale="en" />'));
+        $this->assertSame(2, $this->anzahlAufrufe(), 'Vorbedingung: beide Varianten sind gecacht.');
+
+        $this->apiMehrsprachig('NEU-DE', 'NEU-EN');
+        [$status, $antwort] = $this->postNeuLaden('impressum', eingabe: ['locale' => 'en'], referer: 'http://localhost/en/impressum');
+
+        $this->assertSame(302, $status);
+        $this->assertSame('http://localhost/en/impressum', $this->ziel($antwort));
+        $this->assertSame(3, $this->anzahlAufrufe(), 'Genau ein zusätzlicher HTTP-Aufruf.');
+        $this->assertStringContainsString('locale=en', (string) end($this->aufrufe), 'Der Aufruf geht an die API mit locale=en.');
+
+        $en = $this->rendere('<x-consentlaw::impressum locale="en" />');
+        $this->assertStringContainsString('NEU-EN', $en);
+        $this->assertStringNotContainsString('ALT-EN', $en);
+
+        $de = $this->rendere('<x-consentlaw::impressum />');
+        $this->assertStringContainsString('ALT-DE', $de, 'Die Standardvariante bleibt unberührt.');
+        $this->assertStringNotContainsString('NEU-DE', $de);
+        $this->assertSame(3, $this->anzahlAufrufe(), 'Danach liefert der Cache, ohne neuen Aufruf.');
+    }
+
+    // AK4
+    public function test_neu_laden_ohne_locale_laedt_nur_die_standardvariante(): void
+    {
+        $this->freigeben();
+        $this->apiMehrsprachig('ALT-DE', 'ALT-EN');
+        $this->rendere('<x-consentlaw::impressum />');
+        $this->rendere('<x-consentlaw::impressum locale="en" />');
+
+        $this->apiMehrsprachig('NEU-DE', 'NEU-EN');
+        [$status] = $this->postNeuLaden('impressum');
+
+        $this->assertSame(302, $status);
+        $this->assertSame(3, $this->anzahlAufrufe());
+        $this->assertStringNotContainsString('locale=en', (string) end($this->aufrufe));
+        $this->assertStringContainsString('NEU-DE', $this->rendere('<x-consentlaw::impressum />'));
+        $this->assertStringContainsString('ALT-EN', $this->rendere('<x-consentlaw::impressum locale="en" />'), 'Die EN-Variante bleibt unberührt.');
+    }
+
+    // AK4
+    public function test_neu_laden_mit_locale_holt_die_jobs_dieser_sprache_frisch(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => fn (Request $anfrage): array => $this->jobsPayload([
+            'title' => str_contains($anfrage->url(), 'locale=en') ? 'Alt-Job-EN' : 'Alt-Job-DE',
+        ])]);
+        $this->rendere('<x-consentlaw::jobs />');
+        $this->assertStringContainsString('Alt-Job-EN', $this->rendere('<x-consentlaw::jobs locale="en" />'));
+
+        $this->api(['*' => fn (Request $anfrage): array => $this->jobsPayload([
+            'title' => str_contains($anfrage->url(), 'locale=en') ? 'Neu-Job-EN' : 'Neu-Job-DE',
+        ])]);
+        [$status] = $this->postNeuLaden('jobs', eingabe: ['locale' => 'en']);
+
+        $this->assertSame(302, $status);
+        $this->assertSame(3, $this->anzahlAufrufe());
+        $this->assertStringContainsString('locale=en', (string) end($this->aufrufe));
+        $this->assertStringContainsString('Neu-Job-EN', $this->rendere('<x-consentlaw::jobs locale="en" />'));
+        $this->assertStringContainsString('Alt-Job-DE', $this->rendere('<x-consentlaw::jobs />'), 'Die Standardvariante bleibt unberührt.');
+    }
+
+    /** @return array<string, array{string}> */
+    public static function gueltigeLocales(): array
+    {
+        return ['de' => ['de'], 'en' => ['en'], 'Unterstrich en_GB' => ['en_GB'], 'Bindestrich pt-BR' => ['pt-BR']];
+    }
+
+    // AK4
+    #[DataProvider('gueltigeLocales')]
+    public function test_gueltige_locale_wird_akzeptiert_und_neu_geladen(string $locale): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [$status] = $this->postNeuLaden('impressum', eingabe: ['locale' => $locale]);
+
+        $this->assertSame(302, $status);
+        $this->assertSame(1, $this->anzahlAufrufe());
+    }
+
+    /** @return array<string, array{mixed}> */
+    public static function ungueltigeLocales(): array
+    {
+        return [
+            'Pfad-Traversal' => ['../x'],
+            'Semikolon' => ['de;drop'],
+            'Wort' => ['deutsch'],
+            'Grossbuchstaben' => ['EN'],
+            'Zeilenumbruch' => ["en\nX-Header: 1"],
+            'Anfuehrungszeichen' => ['"en"'],
+            'Array' => [['en']],
+            'Array mit Schluessel' => [['x' => 'en']],
+        ];
+    }
+
+    // AK4
+    #[DataProvider('ungueltigeLocales')]
+    public function test_ungueltige_locale_wird_mit_422_abgewiesen_ohne_api_aufruf(mixed $locale): void
+    {
+        $this->freigeben();
+        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Vorbedingung: Die Route ist registriert.');
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [$status] = $this->postNeuLaden('impressum', eingabe: ['locale' => $locale]);
+
+        $this->assertSame(422, $status);
+        $this->assertSame(0, $this->anzahlAufrufe(), 'Bei ungültiger Sprache darf es keinen API-Aufruf geben.');
+    }
+
+    // AK4
+    public function test_ungueltige_locale_wird_auch_bei_jobs_mit_422_abgewiesen(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->jobsPayload(['title' => 'Neu-Stelle'])]);
+
+        [$status] = $this->postNeuLaden('jobs', eingabe: ['locale' => '../x']);
+
+        $this->assertSame(422, $status);
+        $this->assertSame(0, $this->anzahlAufrufe());
+    }
+
+    // AK4
+    public function test_abgewiesene_locale_laesst_den_cache_unberuehrt(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->rendere('<x-consentlaw::impressum />');
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        $this->postNeuLaden('impressum', eingabe: ['locale' => 'de;drop']);
+
+        $this->assertStringContainsString(self::ALT, $this->rendere('<x-consentlaw::impressum />'));
+        $this->assertSame(1, $this->anzahlAufrufe());
+    }
+
     // ── AK5: Nur gültige Typen ───────────────────────────────────────────────
 
     /** @return array<string, array{string}> */
@@ -692,6 +920,89 @@ final class NeuLadenButtonTest extends AppTestCase
         [$status] = $this->sende($anfrage);
 
         $this->assertSame(405, $status, 'Ein GET darf nie neu laden (CSRF über Link/Bild).');
+        $this->assertSame(0, $this->anzahlAufrufe());
+    }
+
+    // ── AK7: Freigabe auch in der Aktion ─────────────────────────────────────
+    //
+    // Ein echter Route-Cache aus anderer Umgebung lässt sich in der Test-App nicht
+    // nachstellen. Gleichwertig: Die Route wird bei freigegebener App registriert und
+    // bleibt bestehen, die Freigabe wird danach OHNE Neubau der App entzogen – entweder
+    // über die Config zur Laufzeit (Schalter aus) oder durch Umstellen der Umgebung auf
+    // production (detectEnvironment setzt das `env`-Binding, das app()->environment() liest).
+
+    // AK7
+    public function test_entzogener_schalter_zur_laufzeit_liefert_404_ohne_api_aufruf(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Vorbedingung: Die Route ist registriert.');
+
+        $this->app['config']->set('consentlaw.refresh_button', false);
+        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Vorbedingung: Die Route existiert weiterhin.');
+
+        [$status] = $this->postNeuLaden('impressum');
+
+        $this->assertSame(404, $status);
+        $this->assertSame(0, $this->anzahlAufrufe(), 'Ohne Freigabe darf nicht neu geladen werden.');
+    }
+
+    // AK7
+    public function test_umstellung_auf_production_zur_laufzeit_liefert_404_ohne_api_aufruf(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Vorbedingung: Die Route ist registriert.');
+
+        $this->app->detectEnvironment(static fn (): string => 'production');
+        $this->assertTrue($this->app->environment('production'), 'Vorbedingung: Umgebung ist production.');
+        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Vorbedingung: Die Route existiert weiterhin.');
+
+        [$status] = $this->postNeuLaden('jobs');
+
+        $this->assertSame(404, $status);
+        $this->assertSame(0, $this->anzahlAufrufe(), 'Auf Production darf nie neu geladen werden.');
+    }
+
+    // AK7
+    #[DataProvider('dokumentTypen')]
+    public function test_ohne_freigabe_ist_kein_typ_neu_ladbar(string $typ): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        $this->app['config']->set('consentlaw.refresh_button', false);
+
+        [$status] = $this->postNeuLaden($typ);
+
+        $this->assertSame(404, $status);
+        $this->assertSame(0, $this->anzahlAufrufe());
+    }
+
+    // AK7
+    public function test_ohne_freigabe_bleibt_der_cache_unberuehrt(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->rendere('<x-consentlaw::impressum />');
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        $this->app['config']->set('consentlaw.refresh_button', false);
+
+        $this->postNeuLaden('impressum');
+
+        $this->assertStringContainsString(self::ALT, $this->rendere('<x-consentlaw::impressum />'));
+        $this->assertSame(1, $this->anzahlAufrufe());
+    }
+
+    // AK7
+    public function test_ohne_freigabe_wird_auch_mit_locale_nicht_neu_geladen(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        $this->app['config']->set('consentlaw.refresh_button', false);
+
+        [$status] = $this->postNeuLaden('impressum', eingabe: ['locale' => 'en']);
+
+        $this->assertContains($status, [404, 422]);
         $this->assertSame(0, $this->anzahlAufrufe());
     }
 
