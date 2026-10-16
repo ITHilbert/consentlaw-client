@@ -35,7 +35,7 @@ final readonly class Job
             id: (string) ($payload['id'] ?? ''),
             title: (string) ($payload['title'] ?? ''),
             description: (string) ($payload['description'] ?? ''),
-            descriptionFormat: (string) ($payload['description_format'] ?? 'markdown'),
+            descriptionFormat: Inhaltsformat::ausApi($payload['description_format'] ?? null)->value,
             location: self::nullableString($payload['location'] ?? null),
             employmentType: self::nullableString($payload['employment_type'] ?? null),
             employmentTypeLabel: self::nullableString($payload['employment_type_label'] ?? null),
@@ -48,7 +48,7 @@ final readonly class Job
 
     public function isMarkdown(): bool
     {
-        return $this->descriptionFormat === 'markdown' || $this->descriptionFormat === 'md';
+        return Inhaltsformat::ausApi($this->descriptionFormat) === Inhaltsformat::Markdown;
     }
 
     /** Bewerbungsfrist abgelaufen? */

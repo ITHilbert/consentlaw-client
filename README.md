@@ -192,6 +192,13 @@ gilt `markdown` – es gibt **keine Erkennung am Inhalt** mehr. So läuft auch e
 HTML-artiger Inhalt ohne Formatangabe durch den Markdown-Filter (siehe unten) und nie
 ungefiltert auf die Seite.
 
+**Allowlist:** Nur ein Format, das exakt `html` lautet, wird ungefiltert ausgegeben.
+Jeder andere Wert (leer, `HTML`, `Html`, `text`, unbekannt, falscher Datentyp) gilt als
+Markdown und läuft durch den Filter. Das gilt für Dokumente (`format`) ebenso wie für
+Job-Beschreibungen (`description_format`). Die Normalisierung passiert an einer Stelle
+(`ITHilbert\ConsentLaw\Data\Inhaltsformat::ausApi()`); die Properties `format` und
+`descriptionFormat` liefern danach immer `markdown` oder `html`.
+
 ## Sicherheit der Markdown-Ausgabe
 
 Markdown aus consentLaw wird an **einer** Stelle gerendert

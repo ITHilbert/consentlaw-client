@@ -33,33 +33,12 @@ final readonly class Document
         return new self(
             type: $type,
             content: $content,
-            format: self::resolveFormat($payload),
+            format: Inhaltsformat::ausApi($payload['format'] ?? $payload['content_format'] ?? null)->value,
             generatedAt: self::parseDate($payload['generated_at'] ?? null),
             locale: isset($payload['locale']) ? (string) $payload['locale'] : null,
             isStale: $isStale,
             fetchedAt: $fetchedAt,
         );
-    }
-
-    /**
-     * Bestimmt das Format des Inhalts.
-     *
-     * Nicht alle consentLaw-Endpunkte liefern ein `format`-Feld (z.B. Impressum,
-     * Datenschutz, AGB). Ohne Angabe gilt `markdown` – es gibt keine Erkennung am
-     * Inhalt: Markdown läuft durch den Filter des MarkdownRenderers, ein
-     * unterstelltes „html“ dagegen ungefiltert auf die Seite.
-     *
-     * @param  array<string, mixed>  $payload
-     */
-    private static function resolveFormat(array $payload): string
-    {
-        $declared = $payload['format'] ?? $payload['content_format'] ?? null;
-
-        if (is_string($declared) && $declared !== '') {
-            return $declared;
-        }
-
-        return 'markdown';
     }
 
     public function isEmpty(): bool
@@ -69,7 +48,7 @@ final readonly class Document
 
     public function isMarkdown(): bool
     {
-        return $this->format === 'markdown' || $this->format === 'md';
+        return Inhaltsformat::ausApi($this->format) === Inhaltsformat::Markdown;
     }
 
     private static function parseDate(mixed $value): ?CarbonImmutable
