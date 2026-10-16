@@ -6,6 +6,7 @@ namespace ITHilbert\ConsentLaw\Console;
 
 use Illuminate\Console\Command;
 use ITHilbert\ConsentLaw\ConsentLawClient;
+use ITHilbert\ConsentLaw\Data\Abrufstatus;
 
 /**
  * Wärmt Cache und Fallback vor.
@@ -13,6 +14,12 @@ use ITHilbert\ConsentLaw\ConsentLawClient;
  * Sinnvoll direkt nach einem Deploy: storage/ ist dann leer, und der erste
  * Besucher würde sonst auf den API-Abruf warten. Ausserdem liegt danach
  * sofort ein Fallback-Stand bereit, falls die API später ausfällt.
+ *
+ * Exit-Code: FAILURE nur bei echten Problemen – ohne Token oder wenn ein Inhalt
+ * wegen einer Störung weder von der API noch aus dem Fallback geliefert werden
+ * konnte. „Nicht veröffentlicht“ (404, z. B. Kunde ohne AGB) ist nur ein Hinweis –
+ * außer, ALLE Typen (Dokumente und Jobs) antworten mit 404: Dann ist fast sicher der
+ * Token ungültig, und der Befehl endet mit FAILURE samt Token-Hinweis.
  */
 final class ConsentLawWarmCommand extends Command
 {
@@ -31,27 +38,76 @@ final class ConsentLawWarmCommand extends Command
         $locale = $this->option('locale');
         $client = $locale !== null ? $client->locale($locale) : $client;
         $failed = 0;
+        $nichtVeroeffentlicht = 0;
+        $typen = count(ConsentLawClient::DOCUMENT_TYPES) + 1; // Dokumente + Jobs
 
         foreach (array_keys(ConsentLawClient::DOCUMENT_TYPES) as $type) {
-            $document = $client->document($type)->refresh();
+            $endpoint = $client->document($type);
+            $endpoint->forget();
+            $abruf = $endpoint->abrufen();
 
-            if ($document === null || $document->isEmpty()) {
-                $this->components->warn("{$type}: kein Inhalt");
-                $failed++;
+            switch ($abruf->status) {
+                case Abrufstatus::NichtVeroeffentlicht:
+                    // Hinweis, kein Fehler: z. B. ein Kunde ohne AGB.
+                    $this->components->warn("{$type}: nicht veröffentlicht");
+                    $nichtVeroeffentlicht++;
 
-                continue;
+                    break;
+
+                case Abrufstatus::Stoerung:
+                    $this->components->error("{$type}: Störung – weder von der API noch aus dem Fallback lieferbar");
+                    $failed++;
+
+                    break;
+
+                default:
+                    $document = $abruf->inhalt;
+
+                    if ($document === null || $document->isEmpty()) {
+                        $this->components->warn("{$type}: kein Inhalt");
+
+                        break;
+                    }
+
+                    $this->components->info(sprintf(
+                        '%s: %d Zeichen%s',
+                        $type,
+                        mb_strlen($document->content),
+                        $document->isStale ? ' (aus Fallback – API nicht erreichbar!)' : '',
+                    ));
             }
-
-            $this->components->info(sprintf(
-                '%s: %d Zeichen%s',
-                $type,
-                mb_strlen($document->content),
-                $document->isStale ? ' (aus Fallback – API nicht erreichbar!)' : '',
-            ));
         }
 
-        $jobs = $client->jobs()->refresh();
-        $this->components->info("jobs: {$jobs->count()} Stellenangebote");
+        $jobsEndpoint = $client->jobs();
+        $jobsEndpoint->forget();
+        $jobs = $jobsEndpoint->abrufen();
+
+        switch ($jobs->status) {
+            case Abrufstatus::NichtVeroeffentlicht:
+                $this->components->warn('jobs: nicht veröffentlicht');
+                $nichtVeroeffentlicht++;
+
+                break;
+
+            case Abrufstatus::Stoerung:
+                $this->components->error('jobs: Störung – weder von der API noch aus dem Fallback lieferbar');
+                $failed++;
+
+                break;
+
+            default:
+                $this->components->info(sprintf(
+                    'jobs: %d Stellenangebote%s',
+                    $jobs->inhalt->count(),
+                    $jobs->status === Abrufstatus::Fallback ? ' (aus Fallback – API nicht erreichbar!)' : '',
+                ));
+        }
+
+        if ($nichtVeroeffentlicht === $typen) {
+            $this->components->error('Alle Inhalte sind „nicht veröffentlicht“ – bitte den Token (CONSENTLAW_TOKEN) prüfen, er ist vermutlich ungültig.');
+
+            return self::FAILURE;
+        }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }

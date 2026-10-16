@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace ITHilbert\ConsentLaw\Exceptions;
 
 /**
- * consentLaw hat geantwortet, aber mit einem Fehler (404 = Token ungültig,
- * 5xx = Serverfehler) oder mit unlesbarem Inhalt.
+ * consentLaw hat geantwortet, aber ablehnend (404 = Token ungültig oder Inhalt
+ * nicht veröffentlicht) oder mit unlesbarem Inhalt.
+ *
+ * Nur 404 ist „nicht veröffentlicht“; alle übrigen Fehlerstatus kommen als
+ * ConsentLawUnavailableException und gelten als Störung.
  */
 final class ConsentLawResponseException extends ConsentLawException
 {

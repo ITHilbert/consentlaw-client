@@ -5,8 +5,9 @@
               <x-consentlaw::impressum />          (Kurzform, siehe unten)
 
     Der Inhalt kommt als HTML oder Markdown von consentLaw. Markdown wird
-    serverseitig gerendert; HTML wird bewusst unescaped ausgegeben, da es aus
-    der eigenen, authentifizierten Quelle stammt (nicht aus Nutzereingaben).
+    serverseitig und gefiltert gerendert (MarkdownRenderer: rohes HTML und
+    unsichere Links fallen weg). HTML (format = html) wird unescaped ausgegeben;
+    consentLaw filtert es beim Speichern.
 --}}
 @props([
     'type',
@@ -30,7 +31,7 @@
         @endif
 
         {!! $document->isMarkdown()
-                ? \Illuminate\Support\Str::markdown($document->content)
+                ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($document->content)
                 : $document->content !!}
     </div>
 @else

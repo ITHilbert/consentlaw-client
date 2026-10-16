@@ -6,6 +6,7 @@ namespace ITHilbert\ConsentLaw\Support;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Client\RequestException;
 use ITHilbert\ConsentLaw\Contracts\Transport;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawResponseException;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawUnavailableException;
@@ -16,6 +17,10 @@ use Throwable;
  *
  * Übersetzt fremde Exceptions (Guzzle/Connection) in projektinterne – nach oben
  * verlässt diese Klasse ausschliesslich eine ConsentLawException.
+ *
+ * Nur 404 gilt als klare Aussage des Servers („nicht veröffentlicht“,
+ * ConsentLawResponseException). Jeder andere Fehlerstatus wird wie eine Störung
+ * behandelt (ConsentLawUnavailableException).
  */
 final readonly class HttpTransport implements Transport
 {
@@ -39,7 +44,14 @@ final readonly class HttpTransport implements Transport
                 ->acceptJson();
 
             if ($this->retries > 0) {
-                $request = $request->retry($this->retries + 1, $this->retryDelay, throw: false);
+                // 404 ist eine klare Aussage des Servers und wird nicht wiederholt –
+                // wiederholt werden nur Störungen (Verbindungsfehler, 5xx, andere Fehlerstatus).
+                $request = $request->retry(
+                    $this->retries + 1,
+                    $this->retryDelay,
+                    static fn (Throwable $e): bool => ! ($e instanceof RequestException && $e->response->status() === 404),
+                    throw: false,
+                );
             }
 
             $response = $request->get($url, array_filter(
@@ -56,19 +68,18 @@ final readonly class HttpTransport implements Transport
             );
         }
 
-        if ($response->serverError()) {
-            // 5xx wie „nicht erreichbar" behandeln, damit der Fallback greift.
-            throw new ConsentLawUnavailableException(
-                "consentLaw antwortete mit Status {$response->status()} ({$url})."
+        if ($response->status() === 404) {
+            throw new ConsentLawResponseException(
+                "consentLaw: Token ungültig oder Inhalt nicht veröffentlicht ({$url}).",
+                404,
             );
         }
 
         if ($response->failed()) {
-            throw new ConsentLawResponseException(
-                $response->status() === 404
-                    ? "consentLaw: Token ungültig oder Inhalt nicht veröffentlicht ({$url})."
-                    : "consentLaw antwortete mit Status {$response->status()} ({$url}).",
-                $response->status(),
+            // Jeder andere Fehlerstatus (5xx, 429, 401, 403 …) ist keine Aussage über den
+            // Inhalt, sondern eine Störung – der Fallback soll greifen.
+            throw new ConsentLawUnavailableException(
+                "consentLaw antwortete mit Status {$response->status()} ({$url})."
             );
         }
 
