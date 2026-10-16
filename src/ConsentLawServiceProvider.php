@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw;
 
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use ITHilbert\ConsentLaw\Console\ConsentLawFlushCommand;
@@ -16,6 +19,7 @@ use ITHilbert\ConsentLaw\Contracts\Transport;
 use ITHilbert\ConsentLaw\Support\ContentResolver;
 use ITHilbert\ConsentLaw\Support\FileFallbackStore;
 use ITHilbert\ConsentLaw\Support\HttpTransport;
+use ITHilbert\ConsentLaw\Support\NeuLadenFreigabe;
 
 class ConsentLawServiceProvider extends ServiceProvider
 {
@@ -79,6 +83,7 @@ class ConsentLawServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__.'/Resources/views', 'consentlaw');
 
         $this->registerOptionalRoutes();
+        $this->registerNeuLadenRoute();
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -122,5 +127,22 @@ class ConsentLawServiceProvider extends ServiceProvider
                         ->name("consentlaw.{$type}");
                 }
             });
+    }
+
+    /**
+     * Registriert die Route des „Neu laden“-Buttons – nur bei Freigabe
+     * (Schalter an und nicht production, siehe NeuLadenFreigabe).
+     */
+    private function registerNeuLadenRoute(): void
+    {
+        if (! $this->app->make(NeuLadenFreigabe::class)->aktiv()) {
+            return;
+        }
+
+        RateLimiter::for('consentlaw-neu-laden', static fn (Request $request): Limit => Limit::perMinute(6)->by((string) $request->ip()));
+
+        Route::middleware(['web', 'throttle:consentlaw-neu-laden'])
+            ->post('consentlaw/neu-laden/{typ}', Http\NeuLadenController::class)
+            ->name('consentlaw.neu-laden');
     }
 }

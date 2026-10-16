@@ -99,6 +99,17 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | „Neu laden“-Button (nur Entwicklung/Test, standardmässig AUS)
+    |---------------------------------------------------------------------------
+    | Zeigt unter den Komponenten einen Button, der den Inhalt sofort frisch von
+    | consentLaw holt (Cache und Sperrzeit werden umgangen). Wirkt NIE in der
+    | Umgebung `production`, auch wenn der Schalter an ist. Die Route ist auf
+    | 6 Anfragen pro Minute und IP begrenzt.
+    */
+    'refresh_button' => env('CONSENTLAW_REFRESH_BUTTON', false),
+
+    /*
+    |---------------------------------------------------------------------------
     | Sprache
     |---------------------------------------------------------------------------
     | null = aktuelle App-Locale verwenden. consentLaw ist mehrsprachig; der
