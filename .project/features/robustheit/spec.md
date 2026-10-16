@@ -29,7 +29,7 @@ Rechtstexte und Jobs sind auf der Kunden-Homepage **immer** verfügbar, die Seit
 
 - **AK8 — „Nicht veröffentlicht“ wird gecacht:** Gegeben eine 404-Antwort, wenn derselbe Inhalt innerhalb der Cache-TTL erneut abgerufen wird, dann erfolgt kein HTTP-Aufruf und es wird weiterhin nichts geliefert. Eine 404-Antwort wird nicht wiederholt (kein Retry) — ein Abruf = genau ein HTTP-Aufruf. Bei deaktiviertem Cache (`cache.enabled=false` oder TTL 0) wird nicht gecacht.
 - **AK9 — Ungültiger Token fällt bei `warm` auf:** Gegeben `consentlaw:warm`, wenn **alle** Typen (Dokumente und Jobs) mit 404 antworten, dann endet der Befehl mit FAILURE und einem Hinweis, den Token zu prüfen. Sind nur einzelne Typen 404, gilt AK7 (SUCCESS).
-- **AK10 — Kein ungefilterter Pfad ohne Formatangabe:** Gegeben eine Antwort ohne `format`, wenn das Dokument erzeugt wird, dann gilt `markdown` (→ Ausgabe läuft durch den Markdown-Filter nach AK4) — auch wenn der Inhalt wie HTML aussieht. Die Formaterkennung am Inhalt entfällt.
+- **AK10 — Kein ungefilterter Pfad ohne Formatangabe:** Gegeben eine Antwort ohne `format`, wenn das Dokument erzeugt wird, dann gilt `markdown` (→ Ausgabe läuft durch den Markdown-Filter nach AK4) — auch wenn der Inhalt wie HTML aussieht. Die Formaterkennung am Inhalt entfällt. **Allowlist** *(ergänzt nach Review Runde 2)*: Nur ein Format exakt `html` wird ungefiltert ausgegeben; jeder andere Wert (leer, `HTML`, `text`, unbekannt, falscher Datentyp) gilt als Markdown und läuft durch den Filter — für Dokumente (`format`) und Job-Beschreibungen (`description_format`) gleichermaßen.
 
 ## Randfälle
 - Fallback-Datei vorhanden, aber beschädigt (kein JSON) → wie „kein Fallback“, keine Exception.
