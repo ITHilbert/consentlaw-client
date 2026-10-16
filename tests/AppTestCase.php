@@ -25,6 +25,7 @@ use Illuminate\View\Component;
 use Illuminate\View\ViewServiceProvider;
 use ITHilbert\ConsentLaw\ConsentLawClient;
 use ITHilbert\ConsentLaw\ConsentLawServiceProvider;
+use Monolog\Handler\NullHandler;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -115,7 +116,7 @@ abstract class AppTestCase extends TestCase
             ],
             'logging' => [
                 'default' => 'null',
-                'channels' => ['null' => ['driver' => 'monolog', 'handler' => \Monolog\Handler\NullHandler::class]],
+                'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]],
             ],
         ]));
 
