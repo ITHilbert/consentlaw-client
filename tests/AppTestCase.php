@@ -13,15 +13,22 @@ use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Console\Command;
 use Illuminate\Container\Container;
+use Illuminate\Encryption\EncryptionServiceProvider;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Request as HttpRequest;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Session\SessionServiceProvider;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\View\Component;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Illuminate\View\ViewServiceProvider;
 use ITHilbert\ConsentLaw\ConsentLawClient;
 use ITHilbert\ConsentLaw\ConsentLawServiceProvider;
@@ -86,6 +93,22 @@ abstract class AppTestCase extends TestCase
 
         Carbon::setTestNow(CarbonImmutable::parse('2026-10-16 12:00:00'));
 
+        $this->baueApp('testing', []);
+    }
+
+    /**
+     * Baut die kleine Laravel-App samt Provider auf.
+     *
+     * Routen, Limiter und Config-Schalter werden beim BOOTEN des Providers
+     * ausgewertet. Tests, die davon abhängen (z. B. der Neu-laden-Button), müssen
+     * Umgebung und Config deshalb VOR dem Boot setzen – siehe {@see appNeuBauen()}.
+     *
+     * @param  array<string, mixed>  $konfig  Werte für `consentlaw.<schluessel>`, gesetzt vor dem Provider-Boot
+     */
+    private function baueApp(string $umgebung, array $konfig): void
+    {
+        $this->aufrufe = [];
+
         $this->basis = sys_get_temp_dir().'/consentlaw-client-test-'.bin2hex(random_bytes(6));
 
         foreach (['storage/framework/views', 'storage/app', 'views'] as $ordner) {
@@ -98,6 +121,9 @@ abstract class AppTestCase extends TestCase
         ]));
 
         $this->app = new Application($this->basis);
+
+        // Wie der Kernel einer echten App: ohne diese Bindung wirft app()->environment().
+        $this->app->detectEnvironment(static fn (): string => $umgebung);
 
         $this->app->instance('config', new ConfigRepository([
             'app' => [
@@ -121,7 +147,29 @@ abstract class AppTestCase extends TestCase
                 'default' => 'test',
                 'channels' => ['test' => ['driver' => 'monolog', 'handler' => TestHandler::class]],
             ],
+            'session' => [
+                'driver' => 'array',
+                'lifetime' => 120,
+                'expire_on_close' => false,
+                'encrypt' => false,
+                'files' => $this->basis.'/storage/framework/sessions',
+                'connection' => null,
+                'table' => 'sessions',
+                'store' => null,
+                'lottery' => [0, 100],
+                'cookie' => 'consentlaw_test_session',
+                'path' => '/',
+                'domain' => null,
+                'secure' => false,
+                'http_only' => true,
+                'same_site' => 'lax',
+                'partitioned' => false,
+            ],
         ]));
+
+        foreach ($konfig as $schluessel => $wert) {
+            $this->konfig($schluessel, $wert);
+        }
 
         // Der Log-Manager baut den Handler mit Parametern (level) über den Container –
         // ein instance()-Binding würde dabei umgangen. Die Closure liefert immer dieselbe Instanz.
@@ -132,14 +180,36 @@ abstract class AppTestCase extends TestCase
         $this->http->fake(fn (Request $request) => $this->beantworte($request));
         $this->app->instance(HttpFactory::class, $this->http);
 
+        // Die Facades müssen VOR dem Boot auf diese App zeigen: Der Provider darf
+        // beim Booten Route/RateLimiter nutzen. Der Request wird für UrlGenerator
+        // und Redirector gebraucht (echte Apps binden ihn im Kernel).
+        Facade::clearResolvedInstances();
+        Facade::setFacadeApplication($this->app);
+        $this->app->instance('request', HttpRequest::create('http://localhost/'));
+
         $this->app->register(FilesystemServiceProvider::class);
         $this->app->register(CacheServiceProvider::class);
         $this->app->register(ViewServiceProvider::class);
         $this->app->register(TranslationServiceProvider::class);
+        $this->app->register(EncryptionServiceProvider::class);
+        $this->app->register(SessionServiceProvider::class);
+
+        // Wie in einer echten App: Middleware-Gruppe `web` und Alias `throttle`
+        // (in Laravel kommen sie aus dem Kernel bzw. bootstrap/app.php).
+        $router = $this->app['router'];
+        $router->middlewareGroup('web', [
+            StartSession::class,
+            ShareErrorsFromSession::class,
+            ValidateCsrfToken::class,
+        ]);
+        $router->aliasMiddleware('throttle', ThrottleRequests::class);
+
         $this->app->register(ConsentLawServiceProvider::class);
         $this->app->boot();
 
-        Facade::setFacadeApplication($this->app);
+        // Wie RouteServiceProvider::booted() in einer echten App.
+        $router->getRoutes()->refreshNameLookups();
+        $router->getRoutes()->refreshActionLookups();
 
         // Alles aus der Package-Config bleibt Standard (Test von Standardwerten!),
         // nur Token und Warte-/Retry-Zeiten des HTTP-Clients werden test-tauglich gesetzt.
@@ -148,9 +218,23 @@ abstract class AppTestCase extends TestCase
         $this->konfig('http.retry_delay', 0);
     }
 
-    protected function tearDown(): void
+    /**
+     * Verwirft die App und baut sie mit anderer Umgebung/Config neu auf.
+     *
+     * Nötig für alles, was der Provider beim Booten entscheidet (Routen, Limiter).
+     * Danach {@see api()} neu setzen ist nicht nötig, die Fake-Antworten bleiben.
+     *
+     * @param  string  $umgebung  z. B. 'local', 'testing', 'production'
+     * @param  array<string, mixed>  $konfig  z. B. ['refresh_button' => true]
+     */
+    protected function appNeuBauen(string $umgebung, array $konfig = []): void
     {
-        Carbon::setTestNow();
+        $this->verwerfeApp();
+        $this->baueApp($umgebung, $konfig);
+    }
+
+    private function verwerfeApp(): void
+    {
         // Blade-Komponenten halten statisch die View-Factory des ersten Tests fest.
         Component::flushCache();
         Component::forgetFactory();
@@ -160,6 +244,12 @@ abstract class AppTestCase extends TestCase
         Container::setInstance(null);
 
         (new Filesystem)->deleteDirectory($this->basis);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        $this->verwerfeApp();
 
         $this->umgebungWiederherstellen();
 
