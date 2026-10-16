@@ -38,3 +38,5 @@
     {{-- Kein Inhalt verfügbar: bewusst leer, damit kein kaputtes Layout entsteht. --}}
     {{ $slot ?? '' }}
 @endif
+
+@include('consentlaw::components.partials.neu-laden', ['typ' => $type])

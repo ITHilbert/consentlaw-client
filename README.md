@@ -182,7 +182,38 @@ ungültig: Dann endet der Befehl mit Exit-Code 1 und dem Hinweis, den Token zu p
 | `CONSENTLAW_FALLBACK_WARN_AFTER` | `604800` | Log-Warnung ab diesem Alter (Sekunden) |
 | `CONSENTLAW_FALLBACK_RETRY_AFTER` | `300` | Wartezeit nach einer Störung, in der die API nicht erneut gefragt wird (Sekunden, `0` = aus) |
 | `CONSENTLAW_ROUTES_ENABLED` | `false` | Fertige Seiten registrieren |
+| `CONSENTLAW_REFRESH_BUTTON` | `false` | „Neu laden“-Button (nur Entwicklung/Test, nie auf Production) |
 | `CONSENTLAW_LOCALE` | App-Locale | Sprache der Inhalte |
+
+## Neu laden per Button (Entwicklung)
+
+Wer Texte in consentLaw ändert, kann sie auf einer Entwicklungs- oder Test-Homepage
+sofort neu laden – ohne SSH und ohne auf den stündlichen Abruf zu warten. Dafür in der
+`.env` der Entwicklungs-/Testumgebung setzen:
+
+```dotenv
+CONSENTLAW_REFRESH_BUTTON=true
+```
+
+Danach erscheint unter jeder Dokument-Komponente (`<x-consentlaw::impressum />`,
+`<x-consentlaw::document />` …) und unter `<x-consentlaw::jobs />` ein Button „Neu laden“
+(auch, wenn gerade kein Inhalt verfügbar ist). Ein Klick holt genau diesen Typ frisch von
+consentLaw (Cache und Wartezeit nach einer Störung werden umgangen, Fallback-Datei wird
+aktualisiert) und leitet auf die vorherige Seite zurück. Eine Störung führt nicht zu einer
+Fehlerseite; die Seite zeigt dann den bisherigen Stand.
+
+- **Nie auf Production:** In der Umgebung `production` (`APP_ENV`) gibt es weder Button noch
+  Route – auch nicht mit gesetztem Schalter. Dort gelten `consentlaw:warm` und der
+  stündliche Abruf.
+- **Standard aus:** Ohne den Schalter ist die Route (`POST consentlaw/neu-laden/{typ}`,
+  Name `consentlaw.neu-laden`) nicht registriert.
+- **Limit:** höchstens 6 Anfragen pro Minute und IP (sonst 429); der Aufruf braucht ein
+  gültiges CSRF-Token (Middleware-Gruppe `web`). Die Rückleitung geht nur auf die eigene
+  Domain.
+- **Darstellung:** schlicht; das Formular trägt die Klasse `consentlaw-refresh`. Eigenes
+  Markup über die veröffentlichten Views (`partials/neu-laden.blade.php`).
+- Der Button lädt die Inhalte in der konfigurierten Standardsprache (`CONSENTLAW_LOCALE`);
+  Komponenten mit eigenem `locale`-Attribut werden dadurch nicht neu geladen.
 
 ## Format der Inhalte
 
@@ -258,6 +289,20 @@ ServiceProvider:
 ```php
 $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 ```
+
+## Upgrade auf 1.2
+
+- Neu: „Neu laden“-Button für Entwicklung und Test (siehe „Neu laden per Button
+  (Entwicklung)“). Er ist standardmäßig **aus** und auf Production nie aktiv – bestehende
+  Installationen ändern sich nicht.
+- Neuer Config-Schlüssel `refresh_button` (ENV `CONSENTLAW_REFRESH_BUTTON`, Standard
+  `false`). Bei veröffentlichter Config (`vendor:publish`) den Schlüssel ergänzen.
+- Bei veröffentlichten Views (`consentlaw-views`) die neue Teilansicht
+  `components/partials/neu-laden.blade.php` übernehmen und in eigenen Kopien von
+  `components/document.blade.php` und `components/jobs.blade.php` am Ende einbinden:
+  `@include('consentlaw::components.partials.neu-laden', ['typ' => $type])` (Jobs: `'jobs'`).
+- Die Route nutzt die Middleware-Gruppe `web` und den Alias `throttle`; beides bringt jede
+  Laravel-App mit.
 
 ## Sicherheits-Update 1.1.1
 
