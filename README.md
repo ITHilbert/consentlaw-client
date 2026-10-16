@@ -119,13 +119,21 @@ fehlschlägt. Der Ablauf jedes Abrufs:
 | 2. Wartezeit nach Störung aktiv | **kein** HTTP-Request, direkt Schritt 4 |
 | 3. Cache alt/leer | API abrufen → Cache **und** Fallback-Datei aktualisieren |
 | 4. API gestört (Timeout, DNS, 5xx, 429, 401, 403 …) | Wartezeit setzen, letzten Stand aus der Fallback-Datei ausliefern (`isStale = true`) |
-| 5. Server antwortet mit **404** | `null` – der Token ist ungültig oder der Inhalt ist nicht veröffentlicht |
+| 5. Server antwortet mit **404** | `null` – der Token ist ungültig oder der Inhalt ist nicht veröffentlicht. Der Vermerk wird für die Cache-TTL gecacht (kein erneuter HTTP-Aufruf), 404 wird nicht wiederholt |
 | 6. Kein Fallback vorhanden | `null`, die Komponente rendert den Slot |
 
 Der Unterschied zwischen 4 und 5 ist beabsichtigt: Bei einer **Störung** ist ein
 alter Inhalt besser als keiner. Nur eine **404** ist eine klare Aussage des Servers
 („nicht veröffentlicht“) – dann wäre es falsch, weiter alte Inhalte zu zeigen. Jeder
 andere Fehlerstatus (z. B. 429 durch das Rate-Limit von consentLaw) gilt als Störung.
+
+### „Nicht veröffentlicht“ wird gecacht
+
+Ein 404 wird für die Dauer von `CONSENTLAW_CACHE_TTL` vermerkt: Ein Kunde ohne AGB löst
+nicht bei jedem Seitenaufruf einen HTTP-Aufruf aus. Ein 404 wird außerdem nicht
+wiederholt (`http.retries` gilt nur für Störungen: Verbindungsfehler, 5xx, andere
+Fehlerstatus). Bei `cache.enabled=false` oder TTL `0` wird nicht gecacht.
+`forget()`, `refresh()`, `consentlaw:warm` und `consentlaw:flush` verwerfen den Vermerk.
 
 ### Wartezeit nach einer Störung
 
@@ -158,6 +166,9 @@ AGB) nur als Hinweis und endet mit Exit-Code 0. Exit-Code 1 gibt es nur ohne Tok
 wenn ein Typ wegen einer **Störung** weder von der API noch aus dem Fallback geliefert
 werden konnte – so scheitern Deploy-Skripte nur bei echten Problemen.
 
+Antworten **alle** Typen (5 Dokumente und Jobs) mit 404, ist fast sicher der Token
+ungültig: Dann endet der Befehl mit Exit-Code 1 und dem Hinweis, den Token zu prüfen.
+
 ## Konfiguration
 
 | ENV | Standard | Bedeutung |
@@ -173,12 +184,13 @@ werden konnte – so scheitern Deploy-Skripte nur bei echten Problemen.
 | `CONSENTLAW_ROUTES_ENABLED` | `false` | Fertige Seiten registrieren |
 | `CONSENTLAW_LOCALE` | App-Locale | Sprache der Inhalte |
 
-## Formaterkennung
+## Format der Inhalte
 
 consentLaw liefert Inhalte je Endpunkt als Markdown oder HTML. Das `format`-Feld der
-API-Antwort (`markdown` bzw. `html`) gilt immer. Nur wo die API kein `format`
-mitschickt, wird es am Inhalt erkannt. Inline-Tags wie `<br>` (etwa in Adresszeilen)
-werden dabei korrekt nicht als HTML gewertet.
+API-Antwort (`markdown` bzw. `html`) gilt immer. Schickt die API kein `format` mit,
+gilt `markdown` – es gibt **keine Erkennung am Inhalt** mehr. So läuft auch ein
+HTML-artiger Inhalt ohne Formatangabe durch den Markdown-Filter (siehe unten) und nie
+ungefiltert auf die Seite.
 
 ## Sicherheit der Markdown-Ausgabe
 
@@ -213,6 +225,27 @@ ServiceProvider:
 ```php
 $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 ```
+
+## Upgrade auf 1.0
+
+Änderungen, die bestehenden Code betreffen können:
+
+- `ContentResolver::resolve()` liefert jetzt `ITHilbert\ConsentLaw\Data\Abruf` (Status,
+  Payload, Abrufzeitpunkt) statt `?array`. Nur relevant, wenn der Resolver direkt
+  verwendet oder ersetzt wird; die Endpoints (`get()`, `all()` …) sind unverändert und
+  bieten zusätzlich `abrufen()`.
+- Die Standard-URL ist `https://www.consentlaw.eu` (vorher `https://consentlaw.eu`, das
+  per 301 weiterleitete). Eine eigene `CONSENTLAW_URL` bleibt unberührt.
+- Die Formaterkennung am Inhalt entfällt: Ohne `format` in der API-Antwort gilt `markdown`.
+- Neuer Config-Schlüssel `fallback.retry_after` (ENV `CONSENTLAW_FALLBACK_RETRY_AFTER`,
+  Standard `300`): Wartezeit nach einer Störung. Bei veröffentlichter Config
+  (`vendor:publish`) den Schlüssel ergänzen.
+- Nur ein 404 gilt als „nicht veröffentlicht“ (wird gecacht, nicht wiederholt); jeder
+  andere Fehlerstatus gilt als Störung und liefert den Fallback.
+- Markdown wird gefiltert gerendert (`MarkdownRenderer`), rohes HTML und
+  `javascript:`-Links werden entfernt.
+- `consentlaw:warm` endet bei „nicht veröffentlicht“ mit Exit-Code 0, außer alle Typen
+  sind 404 (Token prüfen).
 
 ## Lizenz
 

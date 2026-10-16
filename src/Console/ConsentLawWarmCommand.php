@@ -17,7 +17,9 @@ use ITHilbert\ConsentLaw\Data\Abrufstatus;
  *
  * Exit-Code: FAILURE nur bei echten Problemen – ohne Token oder wenn ein Inhalt
  * wegen einer Störung weder von der API noch aus dem Fallback geliefert werden
- * konnte. „Nicht veröffentlicht“ (404, z. B. Kunde ohne AGB) ist nur ein Hinweis.
+ * konnte. „Nicht veröffentlicht“ (404, z. B. Kunde ohne AGB) ist nur ein Hinweis –
+ * außer, ALLE Typen (Dokumente und Jobs) antworten mit 404: Dann ist fast sicher der
+ * Token ungültig, und der Befehl endet mit FAILURE samt Token-Hinweis.
  */
 final class ConsentLawWarmCommand extends Command
 {
@@ -36,6 +38,8 @@ final class ConsentLawWarmCommand extends Command
         $locale = $this->option('locale');
         $client = $locale !== null ? $client->locale($locale) : $client;
         $failed = 0;
+        $nichtVeroeffentlicht = 0;
+        $typen = count(ConsentLawClient::DOCUMENT_TYPES) + 1; // Dokumente + Jobs
 
         foreach (array_keys(ConsentLawClient::DOCUMENT_TYPES) as $type) {
             $endpoint = $client->document($type);
@@ -46,6 +50,7 @@ final class ConsentLawWarmCommand extends Command
                 case Abrufstatus::NichtVeroeffentlicht:
                     // Hinweis, kein Fehler: z. B. ein Kunde ohne AGB.
                     $this->components->warn("{$type}: nicht veröffentlicht");
+                    $nichtVeroeffentlicht++;
 
                     break;
 
@@ -80,6 +85,7 @@ final class ConsentLawWarmCommand extends Command
         switch ($jobs->status) {
             case Abrufstatus::NichtVeroeffentlicht:
                 $this->components->warn('jobs: nicht veröffentlicht');
+                $nichtVeroeffentlicht++;
 
                 break;
 
@@ -95,6 +101,12 @@ final class ConsentLawWarmCommand extends Command
                     $jobs->inhalt->count(),
                     $jobs->status === Abrufstatus::Fallback ? ' (aus Fallback – API nicht erreichbar!)' : '',
                 ));
+        }
+
+        if ($nichtVeroeffentlicht === $typen) {
+            $this->components->error('Alle Inhalte sind „nicht veröffentlicht“ – bitte den Token (CONSENTLAW_TOKEN) prüfen, er ist vermutlich ungültig.');
+
+            return self::FAILURE;
         }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;

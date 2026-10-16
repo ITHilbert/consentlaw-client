@@ -33,7 +33,7 @@ final readonly class Document
         return new self(
             type: $type,
             content: $content,
-            format: self::resolveFormat($payload, $content),
+            format: self::resolveFormat($payload),
             generatedAt: self::parseDate($payload['generated_at'] ?? null),
             locale: isset($payload['locale']) ? (string) $payload['locale'] : null,
             isStale: $isStale,
@@ -45,11 +45,13 @@ final readonly class Document
      * Bestimmt das Format des Inhalts.
      *
      * Nicht alle consentLaw-Endpunkte liefern ein `format`-Feld (z.B. Impressum,
-     * Datenschutz, AGB). Deren Inhalte sind je nach Generator Markdown ODER HTML.
-     * Ohne Angabe wird daher am Inhalt erkannt, statt ein Format zu unterstellen –
-     * sonst landet Markdown-Quelltext ("# Impressum") sichtbar auf der Seite.
+     * Datenschutz, AGB). Ohne Angabe gilt `markdown` – es gibt keine Erkennung am
+     * Inhalt: Markdown läuft durch den Filter des MarkdownRenderers, ein
+     * unterstelltes „html“ dagegen ungefiltert auf die Seite.
+     *
+     * @param  array<string, mixed>  $payload
      */
-    private static function resolveFormat(array $payload, string $content): string
+    private static function resolveFormat(array $payload): string
     {
         $declared = $payload['format'] ?? $payload['content_format'] ?? null;
 
@@ -57,25 +59,7 @@ final readonly class Document
             return $declared;
         }
 
-        return self::looksLikeHtml($content) ? 'html' : 'markdown';
-    }
-
-    /**
-     * Enthält der Inhalt echte Block-Level-HTML-Tags?
-     *
-     * Inline-Tags wie <br>, <strong> oder <a> zählen NICHT: Sie sind in
-     * Markdown-Dokumenten üblich (z.B. Adresszeilen mit <br>) und würden den
-     * Inhalt sonst fälschlich als HTML einstufen. Zusätzlich schlägt ein
-     * Markdown-Heading am Zeilenanfang die HTML-Erkennung, weil "# " in HTML
-     * keine Bedeutung hat.
-     */
-    private static function looksLikeHtml(string $content): bool
-    {
-        if (preg_match('/^\s{0,3}#{1,6}\s/m', $content) === 1) {
-            return false;
-        }
-
-        return preg_match('/<(p|div|h[1-6]|ul|ol|li|table|section|article|main|header|footer)\b[^>]*>/i', $content) === 1;
+        return 'markdown';
     }
 
     public function isEmpty(): bool

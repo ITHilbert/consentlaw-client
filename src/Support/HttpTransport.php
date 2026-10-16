@@ -6,6 +6,7 @@ namespace ITHilbert\ConsentLaw\Support;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Client\RequestException;
 use ITHilbert\ConsentLaw\Contracts\Transport;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawResponseException;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawUnavailableException;
@@ -43,7 +44,14 @@ final readonly class HttpTransport implements Transport
                 ->acceptJson();
 
             if ($this->retries > 0) {
-                $request = $request->retry($this->retries + 1, $this->retryDelay, throw: false);
+                // 404 ist eine klare Aussage des Servers und wird nicht wiederholt –
+                // wiederholt werden nur Störungen (Verbindungsfehler, 5xx, andere Fehlerstatus).
+                $request = $request->retry(
+                    $this->retries + 1,
+                    $this->retryDelay,
+                    static fn (Throwable $e): bool => ! ($e instanceof RequestException && $e->response->status() === 404),
+                    throw: false,
+                );
             }
 
             $response = $request->get($url, array_filter(

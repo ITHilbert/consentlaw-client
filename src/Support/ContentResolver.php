@@ -17,9 +17,11 @@ use ITHilbert\ConsentLaw\Exceptions\ConsentLawResponseException;
  * Regelt den Ablauf jedes Abrufs:
  *
  *   1. Cache frisch (TTL)?  → sofort ausliefern, kein HTTP-Request
+ *      Vermerk „nicht veröffentlicht“ (404) frisch? → nichts ausliefern, kein HTTP-Request
  *   2. Sperrvermerk aktiv?  → kein HTTP-Request, direkt weiter zu 4.
  *   3. Sonst API abrufen    → Erfolg: Cache + Fallback-Datei aktualisieren
- *                           → 404: „nicht veröffentlicht“, nichts ausliefern
+ *                           → 404: „nicht veröffentlicht“, nichts ausliefern,
+ *                             Vermerk für die Dauer der TTL setzen
  *                           → alles andere (Timeout, 5xx, 429, 401 …) gilt als Störung:
  *                             Sperrvermerk setzen, weiter zu 4.
  *   4. Störung              → letzten Stand aus dem Fallback ausliefern, sonst nichts
@@ -30,7 +32,9 @@ use ITHilbert\ConsentLaw\Exceptions\ConsentLawResponseException;
  * abgelaufenen TTL jeder Seitenaufruf erneut auf den API-Timeout warten.
  *
  * Der Sperrvermerk liegt im Cache-Store (je Inhalt), aber unabhängig von
- * `cache.enabled` – er hängt nicht am Inhalts-Cache.
+ * `cache.enabled` – er hängt nicht am Inhalts-Cache. Der 404-Vermerk dagegen
+ * ist Teil des Inhalts-Caches: Er gilt nur bei `cache.enabled` und TTL > 0,
+ * sonst fragt jeder Abruf die API.
  */
 final readonly class ContentResolver
 {
@@ -54,6 +58,10 @@ final readonly class ContentResolver
     {
         // 1. Frischer Cache-Treffer – ohne HTTP-Request.
         if ($this->cacheEnabled && $this->ttl > 0) {
+            if ($this->cache->has($this->nichtVeroeffentlichtKey($key))) {
+                return Abruf::nichtVeroeffentlicht();
+            }
+
             $cached = $this->cache->get($this->cacheKey($key));
 
             if (is_array($cached) && is_array($cached['payload'] ?? null)) {
@@ -95,6 +103,12 @@ final readonly class ContentResolver
                     'error' => $e->getMessage(),
                 ]);
 
+                // Vermerken, damit nicht jeder Seitenaufruf die API fragt (ein Kunde ohne
+                // AGB würde sonst bei jedem Aufruf einen HTTP-Request auslösen).
+                if ($this->cacheEnabled && $this->ttl > 0) {
+                    $this->cache->put($this->nichtVeroeffentlichtKey($key), true, $this->ttl);
+                }
+
                 return Abruf::nichtVeroeffentlicht();
             }
 
@@ -104,10 +118,11 @@ final readonly class ContentResolver
         }
     }
 
-    /** Verwirft Cache-Eintrag und Sperrvermerk – der nächste Zugriff fragt die API. */
+    /** Verwirft Cache-Eintrag, 404-Vermerk und Sperrvermerk – der nächste Zugriff fragt die API. */
     public function forget(string $key): void
     {
         $this->cache->forget($this->cacheKey($key));
+        $this->cache->forget($this->nichtVeroeffentlichtKey($key));
         $this->cache->forget($this->sperreKey($key));
     }
 
@@ -176,6 +191,11 @@ final readonly class ContentResolver
     private function cacheKey(string $key): string
     {
         return $this->cachePrefix.':'.$key;
+    }
+
+    private function nichtVeroeffentlichtKey(string $key): string
+    {
+        return $this->cachePrefix.':404:'.$key;
     }
 
     private function sperreKey(string $key): string
