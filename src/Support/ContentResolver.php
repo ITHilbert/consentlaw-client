@@ -9,6 +9,7 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Facades\Log;
 use ITHilbert\ConsentLaw\Contracts\FallbackStore;
 use ITHilbert\ConsentLaw\Contracts\Transport;
+use ITHilbert\ConsentLaw\Data\Abruf;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawException;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawResponseException;
 
@@ -16,12 +17,20 @@ use ITHilbert\ConsentLaw\Exceptions\ConsentLawResponseException;
  * Regelt den Ablauf jedes Abrufs:
  *
  *   1. Cache frisch (TTL)?  → sofort ausliefern, kein HTTP-Request
- *   2. Sonst API abrufen    → Erfolg: Cache + Fallback-Datei aktualisieren
- *   3. API-Fehler           → letzten Stand aus dem Fallback ausliefern
- *   4. Kein Fallback        → null (die Komponente rendert dann nichts)
+ *   2. Sperrvermerk aktiv?  → kein HTTP-Request, direkt weiter zu 4.
+ *   3. Sonst API abrufen    → Erfolg: Cache + Fallback-Datei aktualisieren
+ *                           → 404: „nicht veröffentlicht“, nichts ausliefern
+ *                           → alles andere (Timeout, 5xx, 429, 401 …) gilt als Störung:
+ *                             Sperrvermerk setzen, weiter zu 4.
+ *   4. Störung              → letzten Stand aus dem Fallback ausliefern, sonst nichts
  *
- * Punkt 3 ist der Kern: Rechtstexte dürfen nicht von der Kundenseite
- * verschwinden, nur weil ein API-Aufruf fehlschlägt.
+ * Punkt 4 ist der Kern: Rechtstexte dürfen nicht von der Kundenseite
+ * verschwinden, nur weil ein API-Aufruf fehlschlägt. Punkt 2 sorgt dafür, dass
+ * die Seite dabei nicht langsam wird: Ohne Sperrvermerk würde nach jeder
+ * abgelaufenen TTL jeder Seitenaufruf erneut auf den API-Timeout warten.
+ *
+ * Der Sperrvermerk liegt im Cache-Store (je Inhalt), aber unabhängig von
+ * `cache.enabled` – er hängt nicht am Inhalts-Cache.
  */
 final readonly class ContentResolver
 {
@@ -34,37 +43,37 @@ final readonly class ContentResolver
         private string $cachePrefix,
         private bool $fallbackEnabled,
         private int $warnAfter,
+        /** Sekunden, die nach einer Störung nicht erneut die API gefragt wird (0 = keine Sperre). */
+        private int $retryAfter = 300,
     ) {}
 
     /**
      * @param  array<string, scalar|null>  $query
-     * @return array{payload: array<string, mixed>, stale: bool, fetched_at: CarbonImmutable|null}|null
      */
-    public function resolve(string $key, string $endpoint, array $query = []): ?array
+    public function resolve(string $key, string $endpoint, array $query = []): Abruf
     {
-        $cacheKey = $this->cachePrefix.':'.$key;
-
         // 1. Frischer Cache-Treffer – ohne HTTP-Request.
         if ($this->cacheEnabled && $this->ttl > 0) {
-            $cached = $this->cache->get($cacheKey);
+            $cached = $this->cache->get($this->cacheKey($key));
 
             if (is_array($cached) && is_array($cached['payload'] ?? null)) {
-                return [
-                    'payload' => $cached['payload'],
-                    'stale' => false,
-                    'fetched_at' => $this->parseDate($cached['fetched_at'] ?? null),
-                ];
+                return Abruf::aktuell($cached['payload'], $this->parseDate($cached['fetched_at'] ?? null));
             }
         }
 
-        // 2. API abrufen.
+        // 2. Sperrvermerk nach einer Störung – die API wird nicht erneut gefragt.
+        if ($this->retryAfter > 0 && $this->cache->has($this->sperreKey($key))) {
+            return $this->fromFallback($key, null);
+        }
+
+        // 3. API abrufen.
         try {
             $payload = $this->transport->get($endpoint, $query);
             $now = CarbonImmutable::now();
 
             if ($this->cacheEnabled && $this->ttl > 0) {
                 $this->cache->put(
-                    $cacheKey,
+                    $this->cacheKey($key),
                     ['payload' => $payload, 'fetched_at' => $now->toIso8601String()],
                     $this->ttl,
                 );
@@ -74,72 +83,104 @@ final readonly class ContentResolver
                 $this->fallback->put($key, $payload);
             }
 
-            return ['payload' => $payload, 'stale' => false, 'fetched_at' => $now];
-        } catch (ConsentLawResponseException $e) {
-            // Der Server HAT geantwortet – nur ablehnend (404 = Token ungültig
-            // oder Inhalt nicht veröffentlicht). Das ist keine Störung, sondern
-            // eine gültige Aussage: Es gibt hier nichts. Einen alten Stand
-            // auszuliefern wäre falsch (er könnte zu einem anderen Token gehören).
-            Log::warning('[consentlaw] Inhalt nicht verfügbar (Server antwortete ablehnend).', [
-                'key' => $key,
-                'status' => $e->status,
-                'error' => $e->getMessage(),
-            ]);
-
-            return null;
+            return Abruf::aktuell($payload, $now);
         } catch (ConsentLawException $e) {
-            // Netzwerk-/Serverstörung (Timeout, DNS, 5xx) → letzter Stand rettet die Seite.
-            return $this->fromFallback($key, $e);
+            if ($e instanceof ConsentLawResponseException && $e->status === 404) {
+                // Der Server HAT geantwortet: Es gibt hier nichts (Token ungültig oder
+                // Inhalt nicht veröffentlicht). Das ist keine Störung, sondern eine
+                // gültige Aussage – ein alter Stand wäre falsch (er könnte zu einem
+                // anderen Token gehören).
+                Log::warning('[consentlaw] Inhalt nicht veröffentlicht (Server antwortete mit 404).', [
+                    'key' => $key,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return Abruf::nichtVeroeffentlicht();
+            }
+
+            // Alles andere ist eine Störung (Timeout, DNS, 5xx, 429, 401 …):
+            // der letzte Stand rettet die Seite.
+            return $this->beiStoerung($key, $e);
         }
     }
 
+    /** Verwirft Cache-Eintrag und Sperrvermerk – der nächste Zugriff fragt die API. */
+    public function forget(string $key): void
+    {
+        $this->cache->forget($this->cacheKey($key));
+        $this->cache->forget($this->sperreKey($key));
+    }
+
+    private function beiStoerung(string $key, ConsentLawException $error): Abruf
+    {
+        if ($this->retryAfter > 0) {
+            $this->cache->put($this->sperreKey($key), true, $this->retryAfter);
+        }
+
+        return $this->fromFallback($key, $error);
+    }
+
     /**
-     * @return array{payload: array<string, mixed>, stale: bool, fetched_at: CarbonImmutable|null}|null
+     * Liefert den letzten Stand aus dem Fallback.
+     *
+     * @param  ConsentLawException|null  $error  null = Sperrvermerk aktiv: bewusst ohne
+     *                                           Log, sonst schriebe jeder Seitenaufruf einen Eintrag
      */
-    private function fromFallback(string $key, ConsentLawException $error): ?array
+    private function fromFallback(string $key, ?ConsentLawException $error): Abruf
     {
         if (! $this->fallbackEnabled) {
-            Log::warning('[consentlaw] Abruf fehlgeschlagen, Fallback deaktiviert.', [
-                'key' => $key,
-                'error' => $error->getMessage(),
-            ]);
+            if ($error !== null) {
+                Log::warning('[consentlaw] Abruf fehlgeschlagen, Fallback deaktiviert.', [
+                    'key' => $key,
+                    'error' => $error->getMessage(),
+                ]);
+            }
 
-            return null;
+            return Abruf::stoerung();
         }
 
         $entry = $this->fallback->get($key);
 
         if ($entry === null) {
-            Log::error('[consentlaw] Abruf fehlgeschlagen und kein Fallback vorhanden.', [
-                'key' => $key,
-                'error' => $error->getMessage(),
-            ]);
+            if ($error !== null) {
+                Log::error('[consentlaw] Abruf fehlgeschlagen und kein Fallback vorhanden.', [
+                    'key' => $key,
+                    'error' => $error->getMessage(),
+                ]);
+            }
 
-            return null;
+            return Abruf::stoerung();
         }
 
-        $age = $entry->ageInSeconds();
+        if ($error !== null) {
+            $age = $entry->ageInSeconds();
 
-        // Inhalt wird IMMER ausgeliefert – die Warnung dient nur der Diagnose.
-        if ($this->warnAfter > 0 && $age > $this->warnAfter) {
-            Log::warning('[consentlaw] Liefere veralteten Stand aus (API nicht erreichbar).', [
-                'key' => $key,
-                'age_hours' => (int) round($age / 3600),
-                'error' => $error->getMessage(),
-            ]);
-        } else {
-            Log::info('[consentlaw] API nicht erreichbar, Fallback genutzt.', [
-                'key' => $key,
-                'age_seconds' => $age,
-            ]);
+            // Inhalt wird IMMER ausgeliefert – die Warnung dient nur der Diagnose.
+            if ($this->warnAfter > 0 && $age > $this->warnAfter) {
+                Log::warning('[consentlaw] Liefere veralteten Stand aus (API nicht erreichbar).', [
+                    'key' => $key,
+                    'age_hours' => (int) round($age / 3600),
+                    'error' => $error->getMessage(),
+                ]);
+            } else {
+                Log::info('[consentlaw] API nicht erreichbar, Fallback genutzt.', [
+                    'key' => $key,
+                    'age_seconds' => $age,
+                ]);
+            }
         }
 
-        return ['payload' => $entry->payload, 'stale' => true, 'fetched_at' => $entry->fetchedAt];
+        return Abruf::ausFallback($entry->payload, $entry->fetchedAt);
     }
 
-    public function forget(string $key): void
+    private function cacheKey(string $key): string
     {
-        $this->cache->forget($this->cachePrefix.':'.$key);
+        return $this->cachePrefix.':'.$key;
+    }
+
+    private function sperreKey(string $key): string
+    {
+        return $this->cachePrefix.':sperre:'.$key;
     }
 
     private function parseDate(mixed $value): ?CarbonImmutable

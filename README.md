@@ -1,6 +1,6 @@
 # consentLaw Client
 
-Laravel-Client für die [consentLaw](https://consentlaw.eu)-API. Holt Rechtstexte
+Laravel-Client für die [consentLaw](https://www.consentlaw.eu)-API. Holt Rechtstexte
 (Impressum, Datenschutz, AGB, Cookie-Richtlinie, AVV) und Stellenangebote in ein
 beliebiges Laravel-Projekt – mit Cache und ausfallsicherem Fallback.
 
@@ -14,7 +14,7 @@ In der `.env` den Token der Domain eintragen (zu finden in consentLaw unter
 **Domain → Integration & Setup**):
 
 ```dotenv
-CONSENTLAW_URL=https://consentlaw.eu
+CONSENTLAW_URL=https://www.consentlaw.eu
 CONSENTLAW_TOKEN=dein-domain-token
 ```
 
@@ -83,7 +83,7 @@ Eigenes Markup für Jobs:
 @foreach(ConsentLaw::jobs()->current() as $job)
     <h2>{{ $job->title }}</h2>
     <p>{{ $job->employmentTypeLabel }} · {{ $job->location }}</p>
-    {!! $job->isMarkdown() ? Str::markdown($job->description) : $job->description !!}
+    {!! $job->isMarkdown() ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description) : $job->description !!}
 @endforeach
 ```
 
@@ -116,14 +116,27 @@ fehlschlägt. Der Ablauf jedes Abrufs:
 | Schritt | Verhalten |
 |---|---|
 | 1. Cache frisch (TTL, Standard 1 h) | direkt ausliefern, **kein** HTTP-Request |
-| 2. Cache alt/leer | API abrufen → Cache **und** Fallback-Datei aktualisieren |
-| 3. API gestört (Timeout, DNS, 5xx) | letzten Stand aus der Fallback-Datei ausliefern (`isStale = true`) |
-| 4. Server antwortet ablehnend (404) | `null` – der Token ist ungültig oder es gibt keinen Inhalt |
-| 5. Kein Fallback vorhanden | `null`, die Komponente rendert den Slot |
+| 2. Wartezeit nach Störung aktiv | **kein** HTTP-Request, direkt Schritt 4 |
+| 3. Cache alt/leer | API abrufen → Cache **und** Fallback-Datei aktualisieren |
+| 4. API gestört (Timeout, DNS, 5xx, 429, 401, 403 …) | Wartezeit setzen, letzten Stand aus der Fallback-Datei ausliefern (`isStale = true`) |
+| 5. Server antwortet mit **404** | `null` – der Token ist ungültig oder der Inhalt ist nicht veröffentlicht |
+| 6. Kein Fallback vorhanden | `null`, die Komponente rendert den Slot |
 
-Der Unterschied zwischen 3 und 4 ist beabsichtigt: Bei einer **Störung** ist ein
-alter Inhalt besser als keiner. Bei einer **klaren Absage** des Servers wäre es
-falsch, weiter alte Inhalte zu zeigen.
+Der Unterschied zwischen 4 und 5 ist beabsichtigt: Bei einer **Störung** ist ein
+alter Inhalt besser als keiner. Nur eine **404** ist eine klare Aussage des Servers
+(„nicht veröffentlicht“) – dann wäre es falsch, weiter alte Inhalte zu zeigen. Jeder
+andere Fehlerstatus (z. B. 429 durch das Rate-Limit von consentLaw) gilt als Störung.
+
+### Wartezeit nach einer Störung
+
+Nach einer Störung wird die API für `CONSENTLAW_FALLBACK_RETRY_AFTER` Sekunden
+(Standard `300`) **nicht erneut gefragt**, sondern direkt der Fallback ausgeliefert –
+auch wenn keiner existiert (dann direkt nichts). Ohne diese Wartezeit würde nach jeder
+abgelaufenen Cache-TTL jeder Seitenaufruf erneut auf den API-Timeout warten, und die
+Homepage wäre bei einem Ausfall von consentLaw langsam. Nach Ablauf wird die API wieder
+gefragt. Die Wartezeit gilt je Inhalt, liegt im Cache-Store und ist von
+`CONSENTLAW_CACHE_TTL`/`cache.enabled` unabhängig; `0` schaltet sie ab.
+`consentlaw:warm` und `consentlaw:flush` heben sie auf.
 
 Fallback-Dateien liegen auf der konfigurierten Disk unter `consentlaw/` (beim
 Standard-Disk `local` ist das `storage/app/private/consentlaw/`) und enthalten den
@@ -140,26 +153,48 @@ php artisan consentlaw:warm
 php artisan consentlaw:flush   # Cache + Fallback verwerfen
 ```
 
+`consentlaw:warm` meldet einen nicht veröffentlichten Typ (404, z. B. ein Kunde ohne
+AGB) nur als Hinweis und endet mit Exit-Code 0. Exit-Code 1 gibt es nur ohne Token oder
+wenn ein Typ wegen einer **Störung** weder von der API noch aus dem Fallback geliefert
+werden konnte – so scheitern Deploy-Skripte nur bei echten Problemen.
+
 ## Konfiguration
 
 | ENV | Standard | Bedeutung |
 |---|---|---|
-| `CONSENTLAW_URL` | `https://consentlaw.eu` | Basis-URL der Instanz |
+| `CONSENTLAW_URL` | `https://www.consentlaw.eu` | Basis-URL der Instanz |
 | `CONSENTLAW_TOKEN` | – | Domain-Token (**Pflicht**) |
 | `CONSENTLAW_CACHE_TTL` | `3600` | Frische in Sekunden, `0` = Cache aus |
 | `CONSENTLAW_CACHE_STORE` | Standard-Store | z.B. `redis` |
 | `CONSENTLAW_TIMEOUT` | `5` | HTTP-Timeout in Sekunden |
 | `CONSENTLAW_FALLBACK_DISK` | `local` | Disk für die Fallback-Dateien |
 | `CONSENTLAW_FALLBACK_WARN_AFTER` | `604800` | Log-Warnung ab diesem Alter (Sekunden) |
+| `CONSENTLAW_FALLBACK_RETRY_AFTER` | `300` | Wartezeit nach einer Störung, in der die API nicht erneut gefragt wird (Sekunden, `0` = aus) |
 | `CONSENTLAW_ROUTES_ENABLED` | `false` | Fertige Seiten registrieren |
 | `CONSENTLAW_LOCALE` | App-Locale | Sprache der Inhalte |
 
 ## Formaterkennung
 
-consentLaw liefert Inhalte je Endpunkt als Markdown oder HTML. Wo die API kein
-`format` mitschickt, wird es am Inhalt erkannt – Markdown wird serverseitig via
-`Str::markdown()` gerendert. Inline-Tags wie `<br>` (etwa in Adresszeilen)
+consentLaw liefert Inhalte je Endpunkt als Markdown oder HTML. Das `format`-Feld der
+API-Antwort (`markdown` bzw. `html`) gilt immer. Nur wo die API kein `format`
+mitschickt, wird es am Inhalt erkannt. Inline-Tags wie `<br>` (etwa in Adresszeilen)
 werden dabei korrekt nicht als HTML gewertet.
+
+## Sicherheit der Markdown-Ausgabe
+
+Markdown aus consentLaw wird an **einer** Stelle gerendert
+(`ITHilbert\ConsentLaw\Support\MarkdownRenderer::render()`), genutzt von allen
+Komponenten, den Fertig-Seiten und dem JSON-LD der Jobs. Der Renderer filtert:
+
+- Rohes HTML (`<script>`, `<iframe>`, `<img onerror=…>`, Event-Handler) wird **entfernt**,
+  nicht escaped.
+- Unsichere Link-Ziele (`javascript:`, `data:`, `vbscript:`) werden entfernt.
+- `<br>`, `<br/>` und `<br />` bleiben als Zeilenumbruch erhalten.
+- GitHub-Flavored Markdown (Tabellen, Durchgestrichenes, Autolinks) wird unterstützt.
+
+Wer Markdown in eigenem Markup ausgibt, nutzt denselben Renderer statt `Str::markdown()`.
+Inhalte mit `format: html` werden **nicht** durch den Renderer geschickt – consentLaw
+filtert HTML beim Speichern.
 
 ## Anpassbare Views
 

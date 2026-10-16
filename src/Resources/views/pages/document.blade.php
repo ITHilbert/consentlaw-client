@@ -17,7 +17,7 @@
 @section('content')
     <article class="consentlaw-page">
         {!! $document->isMarkdown()
-                ? \Illuminate\Support\Str::markdown($document->content)
+                ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($document->content)
                 : $document->content !!}
     </article>
 @endsection

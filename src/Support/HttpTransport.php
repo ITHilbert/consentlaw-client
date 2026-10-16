@@ -16,6 +16,10 @@ use Throwable;
  *
  * Übersetzt fremde Exceptions (Guzzle/Connection) in projektinterne – nach oben
  * verlässt diese Klasse ausschliesslich eine ConsentLawException.
+ *
+ * Nur 404 gilt als klare Aussage des Servers („nicht veröffentlicht“,
+ * ConsentLawResponseException). Jeder andere Fehlerstatus wird wie eine Störung
+ * behandelt (ConsentLawUnavailableException).
  */
 final readonly class HttpTransport implements Transport
 {
@@ -56,19 +60,18 @@ final readonly class HttpTransport implements Transport
             );
         }
 
-        if ($response->serverError()) {
-            // 5xx wie „nicht erreichbar" behandeln, damit der Fallback greift.
-            throw new ConsentLawUnavailableException(
-                "consentLaw antwortete mit Status {$response->status()} ({$url})."
+        if ($response->status() === 404) {
+            throw new ConsentLawResponseException(
+                "consentLaw: Token ungültig oder Inhalt nicht veröffentlicht ({$url}).",
+                404,
             );
         }
 
         if ($response->failed()) {
-            throw new ConsentLawResponseException(
-                $response->status() === 404
-                    ? "consentLaw: Token ungültig oder Inhalt nicht veröffentlicht ({$url})."
-                    : "consentLaw antwortete mit Status {$response->status()} ({$url}).",
-                $response->status(),
+            // Jeder andere Fehlerstatus (5xx, 429, 401, 403 …) ist keine Aussage über den
+            // Inhalt, sondern eine Störung – der Fallback soll greifen.
+            throw new ConsentLawUnavailableException(
+                "consentLaw antwortete mit Status {$response->status()} ({$url})."
             );
         }
 

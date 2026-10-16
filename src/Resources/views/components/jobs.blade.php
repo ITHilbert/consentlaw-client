@@ -42,7 +42,7 @@
 
                 <div class="consentlaw-job__description">
                     {!! $job->isMarkdown()
-                            ? \Illuminate\Support\Str::markdown($job->description)
+                            ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description)
                             : $job->description !!}
                 </div>
             </article>
@@ -54,7 +54,7 @@
                         '@type' => 'JobPosting',
                         'title' => $job->title,
                         'description' => $job->isMarkdown()
-                            ? \Illuminate\Support\Str::markdown($job->description)
+                            ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description)
                             : $job->description,
                         'employmentType' => $job->employmentTypeSchema,
                         'datePosted' => $job->datePosted?->toIso8601String(),

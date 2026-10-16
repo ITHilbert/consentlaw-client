@@ -12,7 +12,7 @@ return [
     | „Integration & Setup"). Er identifiziert die Domain und gibt ausschliesslich
     | Leserechte auf die für diese Domain veröffentlichten Inhalte.
     */
-    'base_url' => env('CONSENTLAW_URL', 'https://consentlaw.eu'),
+    'base_url' => env('CONSENTLAW_URL', 'https://www.consentlaw.eu'),
     'token' => env('CONSENTLAW_TOKEN'),
 
     /*
@@ -54,13 +54,20 @@ return [
     | Grund: Ein Impressum oder eine Datenschutzerklärung darf NIE von der Seite
     | verschwinden, weil ein API-Aufruf fehlschlägt (Abmahnrisiko).
     |
-    | 'max_age' nur für Warnungen im Log – der Inhalt wird trotzdem ausgeliefert.
+    | 'warn_after' nur für Warnungen im Log – der Inhalt wird trotzdem ausgeliefert.
+    |
+    | 'retry_after': Nach einer Störung (Timeout, 5xx, 429 …) wird die API für
+    | diese Anzahl Sekunden nicht erneut gefragt, sondern direkt der Fallback
+    | geliefert. Sonst würde nach jeder abgelaufenen Cache-TTL jeder
+    | Seitenaufruf erneut auf den API-Timeout warten. Gilt unabhängig von
+    | 'cache.enabled'. 0 = keine Sperre.
     */
     'fallback' => [
         'enabled' => env('CONSENTLAW_FALLBACK_ENABLED', true),
         'disk' => env('CONSENTLAW_FALLBACK_DISK', 'local'),
         'path' => 'consentlaw',
         'warn_after' => env('CONSENTLAW_FALLBACK_WARN_AFTER', 86400 * 7),
+        'retry_after' => env('CONSENTLAW_FALLBACK_RETRY_AFTER', 300),
     ],
 
     /*

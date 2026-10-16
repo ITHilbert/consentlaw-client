@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Endpoints;
 
+use ITHilbert\ConsentLaw\Data\Abrufergebnis;
 use ITHilbert\ConsentLaw\Data\Document;
 use ITHilbert\ConsentLaw\Support\ContentResolver;
 
@@ -25,22 +26,33 @@ final readonly class DocumentEndpoint
     /** Das Dokument, oder null wenn weder API noch Fallback etwas liefern. */
     public function get(): ?Document
     {
-        $result = $this->resolver->resolve(
+        return $this->abrufen()->inhalt;
+    }
+
+    /**
+     * Wie get(), nennt aber zusätzlich den Grund: aktuell, aus dem Fallback,
+     * nicht veröffentlicht (404) oder Störung ohne Fallback.
+     *
+     * @return Abrufergebnis<Document>
+     */
+    public function abrufen(): Abrufergebnis
+    {
+        $abruf = $this->resolver->resolve(
             key: $this->cacheKey(),
             endpoint: "api/{$this->apiPath}/{$this->token}",
             query: ['locale' => $this->locale],
         );
 
-        if ($result === null) {
-            return null;
+        if ($abruf->payload === null) {
+            return new Abrufergebnis($abruf->status, null);
         }
 
-        return Document::fromApi(
+        return new Abrufergebnis($abruf->status, Document::fromApi(
             type: $this->type,
-            payload: $result['payload'],
-            isStale: $result['stale'],
-            fetchedAt: $result['fetched_at'],
-        );
+            payload: $abruf->payload,
+            isStale: $abruf->isStale(),
+            fetchedAt: $abruf->fetchedAt,
+        ));
     }
 
     /** Nur der Inhalt, leerer String wenn nichts verfügbar ist. */
@@ -56,7 +68,7 @@ final readonly class DocumentEndpoint
         return $document !== null && ! $document->isEmpty();
     }
 
-    /** Verwirft den Cache-Eintrag, erzwingt beim nächsten Zugriff einen API-Abruf. */
+    /** Verwirft Cache-Eintrag und Sperrvermerk, erzwingt beim nächsten Zugriff einen API-Abruf. */
     public function refresh(): ?Document
     {
         $this->forget();
@@ -64,7 +76,7 @@ final readonly class DocumentEndpoint
         return $this->get();
     }
 
-    /** Verwirft nur den Cache-Eintrag (Fallback-Datei bleibt erhalten). */
+    /** Verwirft Cache-Eintrag und Sperrvermerk (Fallback-Datei bleibt erhalten). */
     public function forget(): void
     {
         $this->resolver->forget($this->cacheKey());

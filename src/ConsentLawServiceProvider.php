@@ -57,6 +57,8 @@ class ConsentLawServiceProvider extends ServiceProvider
                 cachePrefix: (string) $config['cache']['prefix'],
                 fallbackEnabled: (bool) $config['fallback']['enabled'],
                 warnAfter: (int) $config['fallback']['warn_after'],
+                // ?? : ältere, bereits veröffentlichte Configs kennen den Schlüssel noch nicht.
+                retryAfter: (int) ($config['fallback']['retry_after'] ?? 300),
             );
         });
 

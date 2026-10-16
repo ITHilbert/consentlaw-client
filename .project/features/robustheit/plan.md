@@ -9,11 +9,11 @@ Spec: [spec.md](spec.md) · Branch: `feature/robustheit` · Repo: `ithilbert/con
 - AK3: Sperrvermerk je Key im Cache-Store (unabhängig von `cache.enabled`), Dauer `fallback.retry_after`.
 
 ## Aufgaben
-- [ ] T0 TESTS: `test-writer` — AK1–AK7, Rot-Nachweis.
-- [ ] T1 (AK1–AK3, AK6) [pro] ContentResolver/HttpTransport: 404 vs. übrige Fehler, Sperrvermerk bei Störung, Standard-URL.
-- [ ] T2 (AK4, AK5) [pro] Zentraler Markdown-Renderer, vier Aufrufer umstellen.
-- [ ] T3 (AK7) [pro] `consentlaw:warm` unterscheidet „nicht veröffentlicht“ von Störung.
+- [x] T0 TESTS: `test-writer` — AK1–AK7, Rot-Nachweis.
+- [x] T1 (AK1–AK3, AK6) [pro] ContentResolver/HttpTransport: 404 vs. übrige Fehler, Sperrvermerk bei Störung, Standard-URL.
+- [x] T2 (AK4, AK5) [pro] Zentraler Markdown-Renderer, vier Aufrufer umstellen.
+- [x] T3 (AK7) [pro] `consentlaw:warm` unterscheidet „nicht veröffentlicht“ von Störung.
 - [ ] NACHWEIS · REVIEW · DOKU (README) · Release-Tag `1.0.0` (Homepages binden `^1.0` statt `dev-main`)
 
 ## Stand
-Spec und Plan angelegt, warten auf Freigabe.
+T0–T3 erledigt, 100/100 Tests grün. Nächster Schritt: REVIEW, danach Release 1.0.0 und echter Lauf in it-hilbert.com.
