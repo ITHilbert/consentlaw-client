@@ -25,6 +25,12 @@ Rechtstexte und Jobs sind auf der Kunden-Homepage **immer** verfügbar, die Seit
 - **AK6 — Standard-URL:** Gegeben keine `CONSENTLAW_URL`, wenn der Client eine Anfrage baut, dann geht sie an `https://www.consentlaw.eu`.
 - **AK7 — warm scheitert nur bei echten Problemen:** Gegeben `consentlaw:warm`, wenn ein Typ nicht veröffentlicht ist (404), dann wird er als Hinweis gemeldet, der Befehl endet aber mit SUCCESS. FAILURE nur, wenn ein Typ wegen einer Störung weder von der API noch aus dem Fallback geliefert werden konnte, oder ohne Token.
 
+*Ergänzt nach Review (2026-10-16):*
+
+- **AK8 — „Nicht veröffentlicht“ wird gecacht:** Gegeben eine 404-Antwort, wenn derselbe Inhalt innerhalb der Cache-TTL erneut abgerufen wird, dann erfolgt kein HTTP-Aufruf und es wird weiterhin nichts geliefert. Eine 404-Antwort wird nicht wiederholt (kein Retry) — ein Abruf = genau ein HTTP-Aufruf. Bei deaktiviertem Cache (`cache.enabled=false` oder TTL 0) wird nicht gecacht.
+- **AK9 — Ungültiger Token fällt bei `warm` auf:** Gegeben `consentlaw:warm`, wenn **alle** Typen (Dokumente und Jobs) mit 404 antworten, dann endet der Befehl mit FAILURE und einem Hinweis, den Token zu prüfen. Sind nur einzelne Typen 404, gilt AK7 (SUCCESS).
+- **AK10 — Kein ungefilterter Pfad ohne Formatangabe:** Gegeben eine Antwort ohne `format`, wenn das Dokument erzeugt wird, dann gilt `markdown` (→ Ausgabe läuft durch den Markdown-Filter nach AK4) — auch wenn der Inhalt wie HTML aussieht. Die Formaterkennung am Inhalt entfällt.
+
 ## Randfälle
 - Fallback-Datei vorhanden, aber beschädigt (kein JSON) → wie „kein Fallback“, keine Exception.
 - Cache deaktiviert (`cache.enabled=false`) → AK3 gilt trotzdem (Wartezeit hängt nicht am Inhalts-Cache).

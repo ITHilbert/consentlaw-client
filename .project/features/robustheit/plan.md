@@ -13,6 +13,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/robustheit` · Repo: `ithilbert/con
 - [x] T1 (AK1–AK3, AK6) [pro] ContentResolver/HttpTransport: 404 vs. übrige Fehler, Sperrvermerk bei Störung, Standard-URL.
 - [x] T2 (AK4, AK5) [pro] Zentraler Markdown-Renderer, vier Aufrufer umstellen.
 - [x] T3 (AK7) [pro] `consentlaw:warm` unterscheidet „nicht veröffentlicht“ von Störung.
+- [x] REVIEW Runde 1 freigegeben, Ergänzung AK8–AK10 vom User beauftragt.
+- [ ] T4 TESTS: `test-writer` — AK8–AK10 (+ Pint-Stil in tests/AppTestCase.php), Rot-Nachweis.
+- [ ] T5 (AK8–AK10) [pro] 404-Cache ohne Retry, warm „alle 404 → Token prüfen“, Formaterkennung ausbauen; Changelog-Hinweis `ContentResolver::resolve()` liefert `Abruf`.
 - [ ] NACHWEIS · REVIEW · DOKU (README) · Release-Tag `1.0.0` (Homepages binden `^1.0` statt `dev-main`)
 
 ## Stand
