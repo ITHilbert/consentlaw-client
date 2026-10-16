@@ -16,7 +16,8 @@ Spec: [spec.md](spec.md) · Branch: `feature/robustheit` · Repo: `ithilbert/con
 - [x] REVIEW Runde 1 freigegeben, Ergänzung AK8–AK10 vom User beauftragt.
 - [x] T4 TESTS: `test-writer` — AK8–AK10 (+ Pint-Stil in tests/AppTestCase.php), Rot-Nachweis.
 - [x] T5 (AK8–AK10) [pro] 404-Cache ohne Retry, warm „alle 404 → Token prüfen“, Formaterkennung ausbauen; Changelog-Hinweis `ContentResolver::resolve()` liefert `Abruf`.
-- [ ] NACHWEIS · REVIEW · DOKU (README) · Release-Tag `1.0.0` (Homepages binden `^1.0` statt `dev-main`)
+- [x] T6 (AK10 Allowlist) [pro] Enum `Inhaltsformat` — nur exakt `html` ungefiltert (nach Review Runde 2).
+- [x] NACHWEIS · REVIEW Runde 3 freigegeben (pruefung.md) · DOKU (README) · Release-Tag `1.0.0`
 
 ## Stand
-T0–T5 erledigt, 136/136 Tests grün. Nächster Schritt: REVIEW Runde 2, danach Release 1.0.0.
+Fertig: 166/166 Tests grün, Review Runde 3 freigegeben, in main gemergt, Release 1.0.0. Offen (Backlog): Schutz gegen gleichzeitige Abrufe beim ersten Ausfall; echter Lauf im Kundenprojekt (it-hilbert.com).
