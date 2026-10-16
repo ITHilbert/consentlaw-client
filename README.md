@@ -259,6 +259,10 @@ ServiceProvider:
 $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 ```
 
+## Sicherheits-Update 1.1.1
+
+Verlangt `league/commonmark` ab 2.10.2. Ältere Versionen haben einen DoS in der GFM-Tabellen-Erweiterung ([GHSA-3q6v-r5mr-hxv8](https://github.com/advisories/GHSA-3q6v-r5mr-hxv8)) und einen Bypass von `DisallowedRawHtml` ([GHSA-97jj-33gv-5xf9](https://github.com/advisories/GHSA-97jj-33gv-5xf9)). Nach dem Update im Kundenprojekt: `composer update ithilbert/consentlaw-client league/commonmark`.
+
 ## Upgrade auf 1.1
 
 - **Verhaltensänderung:** Ein einfacher Zeilenumbruch im Markdown wird jetzt als
