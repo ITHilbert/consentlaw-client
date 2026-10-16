@@ -8,9 +8,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/zeilenumbruch-token` · Ziel-Releas
 - Agent-Hooks greifen in diesem Repo nicht → Moderator prüft „Tests unverändert“ per `git diff`.
 
 ## Aufgaben
-- [ ] T0 TESTS: `test-writer` — AK1, AK2, Rot-Nachweis.
-- [ ] T1 (AK1, AK2) [pro] Soft-Break im Renderer, Token-Maskierung; README (Format, Sicherheit), Upgrade-Hinweis 1.1.
+- [x] T0 TESTS: `test-writer` — AK1, AK2, Rot-Nachweis.
+- [x] T1 (AK1, AK2) [pro] Soft-Break im Renderer, Token-Maskierung; README (Format, Sicherheit), Upgrade-Hinweis 1.1.
 - [ ] NACHWEIS · REVIEW · Release-Tag `1.1.0`
 
 ## Stand
-Spec mit dem User abgestimmt (Chat 2026-10-16). Nächster Schritt: TESTS.
+T0–T1 erledigt, 323/323 grün; echtes Impressum rendert Adresszeilen mit <br />. Nächster Schritt: REVIEW.
