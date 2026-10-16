@@ -14,6 +14,7 @@ Rechtstexte werden so dargestellt, wie sie in consentLaw zeilenweise gepflegt si
 ## Randfälle
 - Zeilenende mit zwei Leerzeichen (klassischer harter Umbruch) → genau ein `<br />`, kein doppelter.
 - `<br>` im Text (bestehendes Verhalten) → weiterhin genau ein `<br />`.
+- `<br>` direkt vor einem Zeilenende (`Zeile1<br>\nZeile2`, auch `\r\n` und `<br />`) → genau ein `<br />`, kein doppelter Umbruch.
 - Token kürzer als 5 Zeichen → vollständig maskiert.
 
 ## Nicht-Ziele

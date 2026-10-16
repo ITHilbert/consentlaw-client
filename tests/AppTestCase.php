@@ -25,7 +25,7 @@ use Illuminate\View\Component;
 use Illuminate\View\ViewServiceProvider;
 use ITHilbert\ConsentLaw\ConsentLawClient;
 use ITHilbert\ConsentLaw\ConsentLawServiceProvider;
-use Monolog\Handler\NullHandler;
+use Monolog\Handler\TestHandler;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -35,7 +35,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
  *
  * Es gibt kein orchestra/testbench. Deshalb wird hier eine echte, aber kleine
  * Laravel-Application aufgebaut (Cache = ArrayStore, Filesystem = Temp-Verzeichnis,
- * View/Blade, Translator, Log = NullHandler) und der ConsentLawServiceProvider
+ * View/Blade, Translator, Log = TestHandler) und der ConsentLawServiceProvider
  * registriert. Dadurch laufen die Tests gegen die echte Verdrahtung (Config →
  * HttpTransport → ContentResolver → Endpoints → Blade-Komponenten).
  *
@@ -65,6 +65,9 @@ abstract class AppTestCase extends TestCase
     protected HttpFactory $http;
 
     protected string $basis;
+
+    /** Fängt alle Log-Einträge des Tests ab (siehe {@see logText()}). */
+    protected TestHandler $logHandler;
 
     /** URLs aller HTTP-Aufrufe, die der Client ausgelöst hat (auch fehlgeschlagene). @var list<string> */
     protected array $aufrufe = [];
@@ -115,10 +118,15 @@ abstract class AppTestCase extends TestCase
                 'disks' => ['local' => ['driver' => 'local', 'root' => $this->basis.'/storage/app']],
             ],
             'logging' => [
-                'default' => 'null',
-                'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]],
+                'default' => 'test',
+                'channels' => ['test' => ['driver' => 'monolog', 'handler' => TestHandler::class]],
             ],
         ]));
+
+        // Der Log-Manager baut den Handler mit Parametern (level) über den Container –
+        // ein instance()-Binding würde dabei umgangen. Die Closure liefert immer dieselbe Instanz.
+        $this->logHandler = new TestHandler;
+        $this->app->bind(TestHandler::class, fn (): TestHandler => $this->logHandler);
 
         $this->http = new HttpFactory;
         $this->http->fake(fn (Request $request) => $this->beantworte($request));
@@ -218,7 +226,11 @@ abstract class AppTestCase extends TestCase
         }
 
         if ($antwort === self::STOERUNG) {
-            throw new ConnectException('cURL error 28: Operation timed out', new PsrRequest('GET', $request->url()));
+            // Wie echtes cURL/Guzzle: Die Meldung nennt die vollständige URL (samt Token im Pfad).
+            throw new ConnectException(
+                'cURL error 28: Operation timed out after 5001 milliseconds with 0 bytes received for '.$request->url(),
+                new PsrRequest('GET', $request->url()),
+            );
         }
 
         if (is_int($antwort)) {
@@ -262,6 +274,47 @@ abstract class AppTestCase extends TestCase
     protected function anzahlAufrufe(): int
     {
         return count($this->aufrufe);
+    }
+
+    // ── Log ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Alle bisherigen Log-Einträge als ein Text: Level, Meldung und Kontext
+     * (Exceptions mit Klasse und Meldung, Objekte als Text bzw. JSON).
+     */
+    protected function logText(): string
+    {
+        $zeilen = [];
+
+        foreach ($this->logHandler->getRecords() as $eintrag) {
+            $zeilen[] = $eintrag->level->getName().' '.$eintrag->message.' '
+                .json_encode($this->logNormalisiert($eintrag->context), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR)
+                .' '.json_encode($this->logNormalisiert($eintrag->extra), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
+        }
+
+        return implode("\n", $zeilen);
+    }
+
+    protected function anzahlLogEintraege(): int
+    {
+        return count($this->logHandler->getRecords());
+    }
+
+    private function logNormalisiert(mixed $wert): mixed
+    {
+        if (is_array($wert)) {
+            return array_map(fn (mixed $teil): mixed => $this->logNormalisiert($teil), $wert);
+        }
+
+        if ($wert instanceof \Throwable) {
+            return get_class($wert).': '.$wert->getMessage().($wert->getPrevious() ? ' <- '.$this->logNormalisiert($wert->getPrevious()) : '');
+        }
+
+        if ($wert instanceof \Stringable) {
+            return (string) $wert;
+        }
+
+        return is_object($wert) ? get_object_vars($wert) : $wert;
     }
 
     // ── Zeit ─────────────────────────────────────────────────────────────────
