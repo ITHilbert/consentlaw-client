@@ -209,11 +209,13 @@ Fehlerseite; die Seite zeigt dann den bisherigen Stand.
   Name `consentlaw.neu-laden`) nicht registriert.
 - **Limit:** höchstens 6 Anfragen pro Minute und IP (sonst 429); der Aufruf braucht ein
   gültiges CSRF-Token (Middleware-Gruppe `web`). Die Rückleitung geht nur auf die eigene
-  Domain.
+  Domain. Hinter einem Reverse Proxy ohne konfigurierte Trusted Proxies teilen sich alle
+  Besucher eine IP und damit das Limit.
 - **Darstellung:** schlicht; das Formular trägt die Klasse `consentlaw-refresh`. Eigenes
   Markup über die veröffentlichten Views (`partials/neu-laden.blade.php`).
 - **Sprache:** Hat die Komponente ein `locale`-Attribut (`<x-consentlaw::impressum locale="en" />`),
-  sendet der Button diese Sprache mit (verstecktes Feld `locale`) und lädt genau diese
+  sendet der Button diese Sprache mit (verstecktes Feld `locale`; erlaubt sind Angaben wie
+  `de`, `en`, `en_GB`, `pt-BR` – andere Schreibweisen wie `DE` führen beim Klick zu 422) und lädt genau diese
   Sprachvariante neu. Ohne `locale`-Attribut wird die konfigurierte Standardsprache
   (`CONSENTLAW_LOCALE`) neu geladen. Eine ungültige Sprachangabe (erlaubt: `de`, `en`,
   `de_DE`, `pt-BR` …) wird mit 422 abgewiesen, ohne dass die API aufgerufen wird.
@@ -308,7 +310,7 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 - Bei veröffentlichten Views (`consentlaw-views`) die neue Teilansicht
   `components/partials/neu-laden.blade.php` übernehmen und in eigenen Kopien von
   `components/document.blade.php` und `components/jobs.blade.php` am Ende einbinden:
-  `@include('consentlaw::components.partials.neu-laden', ['typ' => $type])` (Jobs: `'jobs'`).
+  `@include('consentlaw::components.partials.neu-laden', ['typ' => $type, 'locale' => $locale])` (Jobs: `['typ' => 'jobs', 'locale' => $locale]`). Ohne `locale` lädt der Button bei Komponenten mit Sprachangabe die falsche Variante.
 - Die Route nutzt die Middleware-Gruppe `web` und den Alias `throttle`; beides bringt jede
   Laravel-App mit.
 

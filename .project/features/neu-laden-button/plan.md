@@ -14,7 +14,7 @@ Spec: [spec.md](spec.md) · Branch: `feature/neu-laden-button` · Ziel-Release: 
 - [x] REVIEW Runde 1: nicht freigegeben (AK4 mit locale; Freigabe nicht in der Aktion geprüft).
 - [x] T2 TESTS: `test-writer` — AK4 (locale), AK7.
 - [x] T3 (AK4, AK7) [pro] Locale-Feld im Button + Prüfung im Controller, Freigabe-Prüfung im Controller.
-- [ ] NACHWEIS · REVIEW · Release `1.2.0` · it-hilbert.com `composer update` + `.env` lokal einschalten
+- [x] NACHWEIS · REVIEW Runde 2 freigegeben (README-Hinweise eingearbeitet) · Release `1.2.0` · Release `1.2.0` · it-hilbert.com `composer update` + `.env` lokal einschalten
 
 ## Stand
-T0–T3 erledigt, 449/449 grün. Nächster Schritt: REVIEW Runde 2.
+Fertig, Release 1.2.0. Offen: it-hilbert.com `composer update` + Schalter lokal.
