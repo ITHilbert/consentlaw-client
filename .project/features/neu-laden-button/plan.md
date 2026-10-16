@@ -1,0 +1,17 @@
+# Plan: neu-laden-button
+
+Spec: [spec.md](spec.md) · Branch: `feature/neu-laden-button` · Ziel-Release: `1.2.0`
+
+## Hinweise
+- Config `consentlaw.refresh_button` (env `CONSENTLAW_REFRESH_BUTTON`, Standard false); Freigabe-Logik (Schalter UND nicht production) an EINER Stelle, genutzt von Route-Registrierung und Komponenten.
+- Route POST (Middleware `web` + eigener Limiter 6/min), ruft den vorhandenen `refresh()` der Endpoints; Rückleitung `back()`.
+- Button als eigene Blade-Teilansicht, eingebunden in document- und jobs-Komponente (eine Stelle).
+- Agent-Hooks greifen in diesem Repo nicht → Moderator prüft „Tests unverändert“ per `git diff`.
+
+## Aufgaben
+- [ ] T0 TESTS: `test-writer` — AK1–AK6, Rot-Nachweis.
+- [ ] T1 (AK1–AK6) [pro] Config, Freigabe-Logik, Route + Controller-Aktion, Button-Partial, README.
+- [ ] NACHWEIS · REVIEW · Release `1.2.0` · it-hilbert.com `composer update` + `.env` lokal einschalten
+
+## Stand
+Spec mit dem User abgestimmt (Chat 2026-10-16). Nächster Schritt: TESTS.
