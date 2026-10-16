@@ -212,8 +212,16 @@ Fehlerseite; die Seite zeigt dann den bisherigen Stand.
   Domain.
 - **Darstellung:** schlicht; das Formular trägt die Klasse `consentlaw-refresh`. Eigenes
   Markup über die veröffentlichten Views (`partials/neu-laden.blade.php`).
-- Der Button lädt die Inhalte in der konfigurierten Standardsprache (`CONSENTLAW_LOCALE`);
-  Komponenten mit eigenem `locale`-Attribut werden dadurch nicht neu geladen.
+- **Sprache:** Hat die Komponente ein `locale`-Attribut (`<x-consentlaw::impressum locale="en" />`),
+  sendet der Button diese Sprache mit (verstecktes Feld `locale`) und lädt genau diese
+  Sprachvariante neu. Ohne `locale`-Attribut wird die konfigurierte Standardsprache
+  (`CONSENTLAW_LOCALE`) neu geladen. Eine ungültige Sprachangabe (erlaubt: `de`, `en`,
+  `de_DE`, `pt-BR` …) wird mit 422 abgewiesen, ohne dass die API aufgerufen wird.
+- **Freigabe auch in der Aktion:** Die Aktion prüft die Freigabe (Schalter an, nicht
+  production) bei jedem Aufruf erneut und antwortet sonst mit 404 ohne API-Aufruf – auch
+  wenn die Route z. B. aus einem in anderer Umgebung erzeugten Route-Cache stammt.
+- **Bekannte Grenze:** Ist der Fallback per `.env` abgeschaltet und das Neu-Laden scheitert,
+  kann die Seite bis zum nächsten erfolgreichen Abruf ohne Inhalt sein (Standard: Fallback an).
 
 ## Format der Inhalte
 

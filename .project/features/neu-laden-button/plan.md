@@ -12,9 +12,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/neu-laden-button` · Ziel-Release: 
 - [x] T0 TESTS: `test-writer` — AK1–AK6, Rot-Nachweis.
 - [x] T1 (AK1–AK6) [pro] Config, Freigabe-Logik, Route + Controller-Aktion, Button-Partial, README.
 - [x] REVIEW Runde 1: nicht freigegeben (AK4 mit locale; Freigabe nicht in der Aktion geprüft).
-- [ ] T2 TESTS: `test-writer` — AK4 (locale), AK7.
-- [ ] T3 (AK4, AK7) [pro] Locale-Feld im Button + Prüfung im Controller, Freigabe-Prüfung im Controller.
+- [x] T2 TESTS: `test-writer` — AK4 (locale), AK7.
+- [x] T3 (AK4, AK7) [pro] Locale-Feld im Button + Prüfung im Controller, Freigabe-Prüfung im Controller.
 - [ ] NACHWEIS · REVIEW · Release `1.2.0` · it-hilbert.com `composer update` + `.env` lokal einschalten
 
 ## Stand
-T0–T1 erledigt, 414/414 grün. Nächster Schritt: REVIEW.
+T0–T3 erledigt, 449/449 grün. Nächster Schritt: REVIEW Runde 2.

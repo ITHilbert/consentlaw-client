@@ -18,22 +18,51 @@ final class NeuLadenController
 {
     public const JOBS = 'jobs';
 
-    public function __construct(private readonly ConsentLawClient $client) {}
+    private const LOCALE_MUSTER = '/^[a-z]{2}([_-][A-Za-z]{2})?$/D';
+
+    public function __construct(
+        private readonly ConsentLawClient $client,
+        private readonly NeuLadenFreigabe $freigabe,
+    ) {}
 
     public function __invoke(Request $request, string $typ): RedirectResponse
     {
+        // Auch in der Aktion prüfen: Die Route kann aus einem Route-Cache einer anderen
+        // Umgebung stammen, obwohl die Freigabe hier nicht (mehr) aktiv ist.
+        abort_unless($this->freigabe->aktiv(), 404);
+
         $istDokument = array_key_exists($typ, ConsentLawClient::DOCUMENT_TYPES);
 
         abort_unless($istDokument || $typ === self::JOBS, 404);
 
+        $locale = $this->locale($request);
+        $client = $locale === null ? $this->client : $this->client->locale($locale);
+
         try {
-            $istDokument ? $this->client->document($typ)->refresh() : $this->client->jobs()->refresh();
+            $istDokument ? $client->document($typ)->refresh() : $client->jobs()->refresh();
         } catch (ConsentLawException) {
             // Störung (z. B. fehlender Token): Der Resolver hat sie bereits protokolliert,
             // der Nutzer sieht den bisherigen Stand bzw. den Fallback – keine Fehlerseite.
         }
 
         return redirect()->to($this->rueckleitung($request));
+    }
+
+    /**
+     * Optionale Sprachvariante aus dem Formular; ungültige Angaben → 422 ohne API-Aufruf.
+     */
+    private function locale(Request $request): ?string
+    {
+        $locale = $request->input('locale');
+
+        if ($locale === null || $locale === '') {
+            return null;
+        }
+
+        // Kein Validator: Das Paket setzt keinen Validation-Provider voraus.
+        abort_unless(is_string($locale) && preg_match(self::LOCALE_MUSTER, $locale) === 1, 422);
+
+        return $locale;
     }
 
     /**

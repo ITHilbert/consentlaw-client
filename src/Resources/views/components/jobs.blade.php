@@ -72,4 +72,4 @@
     {{ $slot ?? '' }}
 @endif
 
-@include('consentlaw::components.partials.neu-laden', ['typ' => 'jobs'])
+@include('consentlaw::components.partials.neu-laden', ['typ' => 'jobs', 'locale' => $locale])
