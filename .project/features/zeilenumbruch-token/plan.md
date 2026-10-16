@@ -10,7 +10,11 @@ Spec: [spec.md](spec.md) · Branch: `feature/zeilenumbruch-token` · Ziel-Releas
 ## Aufgaben
 - [x] T0 TESTS: `test-writer` — AK1, AK2, Rot-Nachweis.
 - [x] T1 (AK1, AK2) [pro] Soft-Break im Renderer, Token-Maskierung; README (Format, Sicherheit), Upgrade-Hinweis 1.1.
-- [ ] NACHWEIS · REVIEW · Release-Tag `1.1.0`
+- [x] NACHWEIS · REVIEW freigegeben (pruefung.md) · Release-Tag `1.1.0`
 
 ## Stand
-T0–T1 erledigt, 323/323 grün; echtes Impressum rendert Adresszeilen mit <br />. Nächster Schritt: REVIEW.
+Fertig, Release 1.1.0.
+
+## Restrisiken (aus Review)
+- `TokenMaskierung::ausEndpunkt()` nimmt das letzte Pfadsegment als Token — ein künftiger Endpunkt mit Segment nach dem Token hebelt die Maskierung aus; dann Token explizit übergeben.
+- Folgezeilen in Listen/Zitaten erhalten ebenfalls `<br />` (gewollt).
