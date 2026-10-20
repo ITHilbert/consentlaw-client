@@ -17,6 +17,7 @@ Alle AKs: Gegeben `APP_TEST=true` und die Homepage hat eine Session (`StartSessi
 - **AK8 — Darstellung:** Erfolg und Fehler sind optisch unterscheidbar (z. B. grün/rot), dezent im Stil des Buttons, Styles im Partial (Klassen `consentlaw-refresh-meldung`, `…--ok`, `…--fehler`, überschreibbar). Meldungstext wird escaped ausgegeben.
 - **AK9 — Ohne Session:** Gegeben die Homepage hat keine Session, wenn „Neu laden“ ausgelöst wird, dann funktioniert es wie bisher (Rückleitung, Abruf) ohne Meldung und ohne Fehler.
 - **AK10 — Schalter aus:** Gegeben `APP_TEST` aus, dann erscheint weder Button noch Meldung, auch wenn noch eine Meldung in der Session liegt.
+- **AK11 — Seite ohne Token** *(ergänzt nach T0, User 2026-10-20)*: Gegeben `CONSENTLAW_TOKEN` ist leer, wenn eine Dokument-Komponente (`<x-consentlaw::impressum />` usw., `<x-consentlaw::document />`) oder die Jobs-Komponente gerendert wird, dann antwortet die Seite mit 200 statt 500: Die Komponente verhält sich wie „kein Inhalt verfügbar“ (leer bzw. Slot), ohne API-Aufruf, und es wird eine Warnung ins Laravel-Log geschrieben („CONSENTLAW_TOKEN fehlt“). Mit `APP_TEST=true` erscheint der Button, und nach „Neu laden“ ist die Meldung aus AK5 auf dieser Seite sichtbar. Gilt in jeder Umgebung.
 
 ## Randfälle
 - Rate-Limit (mehr als 6 Aufrufe/min) → 429 wie bisher, keine Meldung.
@@ -26,4 +27,6 @@ Alle AKs: Gegeben `APP_TEST=true` und die Homepage hat eine Session (`StartSessi
 ## Nicht-Ziele
 - Keine Meldung per JavaScript/AJAX, kein Neuladen ohne Seitenwechsel.
 - Kein dauerhaft sichtbarer „Stand“ ohne vorheriges „Neu laden“ (der bestehende Stale-Hinweis bleibt, wie er ist).
+- Die PHP-API (`ConsentLaw::document()`, `jobs()`) wirft ohne Token weiterhin `MissingTokenException`; nur die Blade-Komponenten fangen ab.
+- Keine Störungsmail bei fehlendem Token (Konfigurationsfehler; `consentlaw:reload` endet ohne Token bereits mit FAILURE).
 - Keine Übersetzung der Meldungen über Deutsch hinaus (Texte laufen über `__()`, übersetzbar bleibt es).
