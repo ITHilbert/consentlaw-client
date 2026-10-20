@@ -47,27 +47,12 @@
                 </div>
             </article>
 
-            @if($withSchema)
-                <script type="application/ld+json">
-                    {!! json_encode(array_filter([
-                        '@context' => 'https://schema.org',
-                        '@type' => 'JobPosting',
-                        'title' => $job->title,
-                        'description' => $job->isMarkdown()
-                            ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description)
-                            : $job->description,
-                        'employmentType' => $job->employmentTypeSchema,
-                        'datePosted' => $job->datePosted?->toIso8601String(),
-                        'validThrough' => $job->validThrough?->toIso8601String(),
-                        'jobLocation' => $job->location ? [
-                            '@type' => 'Place',
-                            'address' => ['@type' => 'PostalAddress', 'addressLocality' => $job->location],
-                        ] : null,
-                    ]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}
-                </script>
-            @endif
         @endforeach
     </div>
+
+    @if($withSchema)
+        <x-consentlaw::jobs-schema :jobs="$jobs" />
+    @endif
 @else
     {{ $slot ?? '' }}
 @endif
