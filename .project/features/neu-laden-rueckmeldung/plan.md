@@ -15,7 +15,7 @@ Spec: [spec.md](spec.md) · Branch: `feature/neu-laden-rueckmeldung`
 - [x] T5 (Randfälle) [pro] `refresh()` delegiert an `neuLaden()`; Token-Abfangen als injizierbare Klasse statt statischem Helfer, genutzt von Komponenten und Seiten-Controller.
 - [x] T6 (AK12, AK13) [pro] Seiten-Controller ohne Token; unlesbaren Stand abfangen.
 - [x] NACHWEIS 2: 679/679 grün, Tests seit ca0466d unverändert, Pint grün. Echter Lauf (Kopie it-hilbert.com): Erfolg, ohne Token (200, Meldung, Log-Warnung). README um AK12 ergänzt.
-- [ ] REVIEW 2.
+- [x] REVIEW 2: freigegeben (pruefung.md). Hinweis: Package-Jobs-Seite ruft Jobs doppelt ab (vorbestehend) → Index „Geplant“.
 
 ## Stand
-NACHWEIS 2 fertig, Review 2 läuft.
+Fertig, in main gemergt und gepusht, kein Release. Browser-Sichtprüfung durch User offen.

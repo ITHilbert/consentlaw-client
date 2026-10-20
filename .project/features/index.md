@@ -1,9 +1,10 @@
 ## In Arbeit
-- [neu-laden-rueckmeldung](neu-laden-rueckmeldung/plan.md) — „Neu laden“ meldet Erfolg oder Fehler
 
 ## Geplant
+- Package-Jobs-Seite: Controller übergibt `jobs`, View rendert `<x-consentlaw::jobs>` erneut → doppelter Abruf/doppelte Log-Warnung (Review 2 neu-laden-rueckmeldung)
 
 ## Fertig
+- [neu-laden-rueckmeldung](neu-laden-rueckmeldung/plan.md) — „Neu laden“ meldet Erfolg oder Fehler, Seiten ohne Token ohne 500 (2026-10-20)
 - [alerts-anbindung](alerts-anbindung/plan.md) — Störungsmeldung über das Basis-Package alerts statt eigener Mail (2026-10-20)
 - [stoerungs-meldung](stoerungs-meldung/plan.md) — Meldung per Mail bei Störungen (2026-10-20)
 - [reload-command](reload-command/plan.md) — `consentlaw:warm` → `consentlaw:reload` (2026-10-20)
