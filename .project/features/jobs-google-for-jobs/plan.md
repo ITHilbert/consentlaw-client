@@ -10,8 +10,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/jobs-google-for-jobs`
 - [x] NACHWEIS: 717/717 grün; Tests seit 631da94 nur MarkdownAusgabeTest (test-writer, c68b4ec) geändert. Probe in it-hilbert-Kopie: echte API → 6 gültige JSON-LD mit korrektem @context (vorher kaputt); Fixture mit neuem Vertrag → hiringOrganization, TELECOMMUTE, Country DE.
 - [x] REVIEW 1: nicht freigegeben – AK7: README-Beispiel zeigt HTML-Beschreibungen nicht (immer MarkdownRenderer); Hinweise H1 Kommentar, H2 with-schema, H3 URL mit Leerzeichen. Optimierungslauf (Skill-Regel README-Beispiele, Template 7bc0ed9).
 - [x] T0b TESTS: `test-writer` — AK7 (README-Codeblock gerendert, Markdown + HTML), AK8, AK9, AK2 (URL streng).
-- [ ] T4 (AK2, AK7–AK9) [pro] `Job::descriptionHtml()`, Nutzung in Komponente/Schema/README; URL-Prüfung; Kopfkommentar.
-- [ ] NACHWEIS 2, REVIEW 2.
+- [x] T4 (AK2, AK7–AK9) [pro] `Job::descriptionHtml()`, Nutzung in Komponente/Schema/README; URL-Prüfung; Kopfkommentar.
+- [x] NACHWEIS 2: 732/732 grün, Tests seit f8954b1 unverändert; README-Codeblock in it-hilbert-Kopie mit echter API gerendert: Markdown-Beschreibungen vollständig, 6/6 JSON-LD gültig, Button da.
+- [ ] REVIEW 2.
 
 ## Stand
-Rote Tests T0b committet (f8954b1, 13 rot). T4 bei coder-pro.
+NACHWEIS 2 fertig, Review 2 läuft.
