@@ -1,9 +1,12 @@
 ## In Arbeit
 
 ## Geplant
+- `Document::contentHtml()` – Markdown/HTML-Unterscheidung in `components/document` und `pages/document` an eine Stelle ziehen (wie AK8 jobs-google-for-jobs)
+- README: `:with-schema="false"` dokumentieren (statisch `with-schema="false"` ist truthy)
 - Package-Jobs-Seite: Controller übergibt `jobs`, View rendert `<x-consentlaw::jobs>` erneut → doppelter Abruf/doppelte Log-Warnung (Review 2 neu-laden-rueckmeldung)
 
 ## Fertig
+- [jobs-google-for-jobs](jobs-google-for-jobs/plan.md) — JobPosting mit Arbeitgeber und Homeoffice, Komponente jobs-schema, `@context` repariert (2026-10-20)
 - [neu-laden-rueckmeldung](neu-laden-rueckmeldung/plan.md) — „Neu laden“ meldet Erfolg oder Fehler, Seiten ohne Token ohne 500 (2026-10-20)
 - [alerts-anbindung](alerts-anbindung/plan.md) — Störungsmeldung über das Basis-Package alerts statt eigener Mail (2026-10-20)
 - [stoerungs-meldung](stoerungs-meldung/plan.md) — Meldung per Mail bei Störungen (2026-10-20)

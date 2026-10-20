@@ -1,0 +1,83 @@
+# Prüfung: jobs-google-for-jobs — 2026-10-20
+
+Branch `feature/jobs-google-for-jobs` gegen `main` (Commits bd37eae … 126ef01). Nachweise: volle Suite, Feature-Tests und eigene Proben (Wegwerf-Tests auf Basis von `AppTestCase` im Session-Scratchpad, nicht im Repo), die `<x-consentlaw::jobs />`, `<x-consentlaw::jobs-schema>` und den README-Codeblock wirklich rendern.
+
+| AK | Ergebnis | Nachweis |
+|---|---|---|
+| AK1 | bestanden | `phpunit --filter JobGoogleFuerJobsDaten` 15/15 grün. Eigene Probe: `hiring_organization` als String, als Liste von Objekten, Name `"   "` → `null`; `remote` `"true"`/`1` → `false`; `applicant_countries` `['de','DEU','',null,'DE','at',7,['x']]` → `['DE','AT']`; `'DE'` als String bzw. assoziatives Array → `[]`; heutige API ohne Felder → kein Arbeitgeber, `remote=false`, `[]`. Kein Fehler. |
+| AK2 | bestanden | Tests grün. Probe: `url: "javascript:alert(1)"` und `logo: "//cdn.example/logo.png"` entfallen, `name` bleibt; ohne Arbeitgeber kein `hiringOrganization`. Hinweis H3 (Prüfung „absolute URL“ ist nur ein Präfix-Check). |
+| AK3 | bestanden | Probe: `remote=true` + `['DE','AT']` → `jobLocationType: TELECOMMUTE` + zwei `{"@type":"Country","name":…}`; `remote=true` ohne Länder → nur `jobLocationType`; `remote=false` → keins der Felder. |
+| AK4 | bestanden | Probe „hybrid“ (`location: Kiel`, `remote=true`, `['DE']`): `jobLocation` als `Place`/`PostalAddress` unverändert vorhanden, dazu die Homeoffice-Felder. |
+| AK5 | bestanden | `jobs-schema` mit Collection, `[]` und ganz ohne Prop → leere Ausgabe; mit Jobs je Job genau ein `<script type="application/ld+json">`. `jobs.blade.php` hat keinen eigenen Schema-Aufbau mehr, nur `<x-consentlaw::jobs-schema :jobs="$jobs" />`; Aufbau einzig in `Support/JobPostingSchema.php`. Vergleich mit dem `main`-Template (gleiche Fixture, gerendert): `title`, `description`, `employmentType`, `datePosted`, `validThrough`, `jobLocation` byte-gleich; auf `main` war der Schlüssel `@context` durch die Blade-Direktive zu PHP-Code zerstört, jetzt korrekt `"@context":"https://schema.org"`. `:with-schema="false"` → 0 Scripts (wie bisher). Hinweis H2 zu `with-schema="false"`. |
+| AK6 | bestanden | Probe: Arbeitgeber-Name `</script><script>alert(1)</script>` erscheint als `</script>…`; gleiches gilt für `location`. `json_decode` liefert den Originalwert, das Script wird nicht verlassen. Tests „…kann das script nicht verlassen“ (jobs und jobs-schema) grün. |
+| AK7 | nicht bestanden | Die drei geforderten Bausteine sind dokumentiert und funktionieren (README-Codeblock gerendert): ohne Token → leere Ausgabe, `WARNING [consentlaw] CONSENTLAW_TOKEN fehlt – Komponente bleibt leer.`, 0 API-Aufrufe, keine Exception; mit Token und `APP_TEST=true` → Formular „Neu laden“ + JSON-LD mit `hiringOrganization`/`TELECOMMUTE`. **Mangel M1:** Der gezeigte Weg gibt Jobs nur bei Markdown korrekt aus, siehe unten. Der README-Test prüft nur, ob Stichworte vorkommen; den Codeblock rendert er nicht. |
+
+### M1 — README-Beispiel verwirft HTML-Beschreibungen (AK7)
+`README.md`, Abschnitt „Eigenes Markup“, gibt die Beschreibung immer so aus:
+```blade
+{!! \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description) !!}
+```
+`MarkdownRenderer` arbeitet mit `html_input = strip`. Probe: `MarkdownRenderer::render('<ul><li>Eins</li></ul><p>Zwei</p>')` → **leerer String**. Liefert consentLaw eine Stelle mit `description_format: html`, zeigt eine Homepage, die das Beispiel übernimmt (z. B. it-hilbert.com), die Beschreibung also gar nicht an. Der Text darunter („`$job->isMarkdown()` zeigt das Format an“) widerspricht dem Beispiel. `jobs.blade.php` und `JobPostingSchema` unterscheiden richtig nach `isMarkdown()`. Das Beispiel sollte dieselbe Fallunterscheidung zeigen.
+
+### Hinweise (nicht blockierend)
+- **H1 — veralteter Kommentar:** `src/Resources/views/components/jobs.blade.php`, Z. 8–11, empfiehlt für eigenes Markup weiterhin `ConsentLaw::jobs()->current()`. Das wirft ohne Token, und die neue README rät ausdrücklich davon ab. Der Kommentar sollte auf „Eigenes Markup“/`KomponentenInhalt` verweisen.
+- **H2 — `with-schema="false"`:** Als statisches Attribut ist das der String `"false"`, also truthy: Das JSON-LD wird **ausgegeben** (Probe: 1 Script). Unterdrückt wird es nur mit `:with-schema="false"`. Auf `main` verhält es sich genauso, es ist also keine Regression. Die Spec-Formulierung kann aber in die Irre führen; die README sollte die gebundene Form nennen.
+- **H3 — URL-Prüfung:** `JobPostingSchema::absoluteUrl()` prüft nur das Präfix `#^https?://[^\s/]+#i`. `https://a b` wird als `sameAs` übernommen. Für die Sicherheit ist das unkritisch (JSON-escaped, Schema `javascript:`/protokollrelativ abgewiesen), streng genommen ist es aber keine gültige absolute URL. `filter_var(…, FILTER_VALIDATE_URL)` plus Schema-Prüfung wäre robuster.
+- Das Script steht jetzt nicht mehr hinter jedem `<article>`, sondern gesammelt nach dem Listen-`<div>`. Für Google ist das ohne Bedeutung; die Spec verlangt keine Position.
+
+## Sicherheit
+- **Ausgabe-Escaping:** JSON-LD mit `JSON_HEX_TAG` erzeugt, `</script>` in Name/Ort/Beschreibung nur als `<…` (Probe). Die sichtbaren Felder in `jobs.blade.php` (`title`, `location`) laufen weiter über `{{ }}` (Probe: `&lt;/script&gt;Kiel`).
+- **Validierung der API-Daten:** Alle neuen Felder werden typstreng geparst (`=== true`, `is_string`, Regex `^[A-Za-z]{2}$`). URLs mit `javascript:`, `//…` oder leere Werte entfallen.
+- **Mandantentrennung/Autorisierung/Mass-Assignment:** Nicht berührt. Es gibt keine neuen Routen, Controller oder Models, nur Lesen und Rendern.
+- **Token:** Der dokumentierte Weg wirft ohne Token nicht und ruft die API dann nicht auf (Probe).
+
+## Regressionen
+- Volle Suite `../../vendor/bin/phpunit`: **717/717 grün** (3331 Assertions), PHP 8.5.11.
+- Tests seit dem Rot-Commit 631da94: geändert ist nur `tests/MarkdownAusgabeTest.php` (c68b4ec, test-writer). Erwartet wird jetzt `JobPostingSchema.php` statt eines zweiten `MarkdownRenderer`-Aufrufs in `jobs.blade.php`. Das ist fachlich nachvollziehbar und schwächt die Prüfung nicht ab.
+- Pint `--test` auf den drei geänderten PHP-Dateien: bestanden. PHPStan ist im Workspace nicht vorhanden, also nicht geprüft.
+- Bisherige JSON-LD-Felder byte-gleich zu `main` (siehe AK5). Einzige Verhaltensänderung: `@context` ist jetzt korrekt statt kaputt.
+- Nicht-Ziele eingehalten: keine sichtbare Ausgabe von Arbeitgeber/Homeoffice in der Liste, keine weiteren JobPosting-Felder.
+
+## Fazit: nicht freigegeben
+AK1–AK6 sind nachweislich erfüllt. AK7 scheitert an M1: Das dokumentierte Muster für eigenes Markup zeigt HTML-Stellenbeschreibungen nicht an, und genau dieses Muster soll die Homepage übernehmen. Zur Freigabe genügt es, das README-Beispiel um die `isMarkdown()`-Unterscheidung zu ergänzen (wie in `jobs.blade.php`), idealerweise mit einem Test, der den Codeblock auch mit einer HTML-Stelle rendert. H1–H3 sind empfohlen, blockieren aber nicht.
+
+---
+
+# Prüfung: jobs-google-for-jobs — Review 2 — 2026-10-20
+
+Der Abschnitt oben ist Review 1 und bleibt unverändert. Geprüft wurde `feature/jobs-google-for-jobs` gegen `main` bis 9bd4b1c, mit Schwerpunkt auf den Änderungen seit Review 1 (3031329 … 9bd4b1c: Spec-Schärfung AK2/AK5/AK7, neue AK8/AK9, rote Tests f8954b1, Fix de7a785). Alle AKs wurden erneut selbst nachgewiesen: volle Suite und eigene Proben. Die Proben sind ein Wegwerf-Test auf Basis von `AppTestCase` im Session-Scratchpad, nicht im Repo. Er rendert `<x-consentlaw::jobs />`, `<x-consentlaw::jobs-schema>`, den README-Codeblock und zum Vergleich das `main`-Template `jobs.blade.php` als anonyme Komponente.
+
+| AK | Ergebnis | Nachweis |
+|---|---|---|
+| AK1 | bestanden | Heutige API ohne neue Felder ergibt `null`/`false`/`[]`. Voller Vertrag wird übernommen. Liefert die API `hiring_organization` als String, als Liste, mit Name `"  "`, mit Name als int oder ohne Name, ist das Ergebnis jeweils `null`. Für `remote` ergeben `"true"`, `1` und `null` jeweils `false`. `applicant_countries` `['de','DEU','',null,'DE','at',7,['x'],' de','Ä1']` → `['DE','AT']`, als String bzw. `null` → `[]`. Es gab keinen Fehler. Siehe Hinweis R2-H1 (JSON-Objekt statt Liste). |
+| AK2 | bestanden | Übernommen werden: `https://acme.example`, `HTTPS://ACME.example/x?y=1#z`, `http://localhost`, URLs mit Port und Punycode-Hosts. Verworfen werden, `name` bleibt jeweils erhalten: `https://a b`, Pfad mit Leerzeichen bzw. NBSP, `//acme.example`, `https:acme.example`, `https://`, `javascript:…` (auch `javascript://host/%0A…`), `data:`, `mailto:`, `ftp:`, `""`. Neuer Data-Provider-Test mit 9 ungültigen URLs ist grün. Ohne Arbeitgeber fehlt der Schlüssel `hiringOrganization`. H3 aus Review 1 ist behoben (`parse_url` + `FILTER_VALIDATE_URL` + Leer-/Steuerzeichen-Regex). Grenzfälle siehe R2-H2. |
+| AK3 | bestanden | `remote=true` + `['DE','AT']` ergibt `TELECOMMUTE` und zwei `Country`. `remote=true` ohne Länder ergibt nur `jobLocationType`. `remote=false` mit Ländern ergibt keines der beiden Felder. |
+| AK4 | bestanden | Hybrid (`location: Kiel`, `remote=true`, `['DE']`): `jobLocation` als `Place`/`PostalAddress` vorhanden, dazu die Homeoffice-Felder. Ohne `location` fehlt `jobLocation`, wie bisher. |
+| AK5 | bestanden | `jobs-schema` mit `[]`, mit `collect()` und ohne Prop ergibt eine leere Ausgabe. Mit 2 Jobs gibt es genau 2 `<script type="application/ld+json">` mit gültigem JSON und `"@context":"https://schema.org"`. Abgesehen von den Scripts ist die Ausgabe leer. `jobs.blade.php` bindet nur `<x-consentlaw::jobs-schema :jobs="$jobs" />` ein, der Aufbau steckt einzig in `JobPostingSchema::array()`. Vergleich mit dem `main`-Template bei gleicher Fake-API (Markdown-Stelle mit `validThrough`, HTML-Stelle ohne Ort/Typ): `title`, `description`, `employmentType`, `datePosted`, `validThrough` und `jobLocation` sind byte-gleich, fehlende Felder fehlen in beiden. Auf `main` ist `@context` weiterhin zu PHP-Code zerstört. `:with-schema="false"` ergibt 0 Scripts. |
+| AK6 | bestanden | `</script><script>alert(1)</script>` als Arbeitgeber-Name, Titel, Ort und HTML-Beschreibung: Im Ergebnis gibt es genau ein `</script` (das schließende), alle Werte stehen als `<…`. `json_decode` liefert den Originalwert. |
+| AK7 | bestanden | README-Codeblock „Eigenes Markup“ ausgelesen und mit `Blade::render` gerendert. **Mit Token:** Die Markdown-Stelle wird vollständig gerendert (`<h2>`, `<ul><li>`, `<strong>`, Link), die HTML-Stelle erscheint unverändert (`<ul><li>Eins</li></ul><p>Zwei <strong>drei</strong></p>`). Dazu kommen 2 JSON-LD, eines davon mit `hiringOrganization`/`TELECOMMUTE`/`Country DE`, und kein Log-Eintrag. **Ohne Token:** leere Ausgabe, 0 API-Aufrufe, `WARNING [consentlaw] CONSENTLAW_TOKEN fehlt – Komponente bleibt leer.`, keine Exception. **Mit `refresh_button` (Umgebung production):** Formular `consentlaw-refresh` „Neu laden“ mit `action=…/consentlaw/neu-laden/jobs`. Das Beispiel enthält weder `isMarkdown` noch `MarkdownRenderer`. Damit ist M1 aus Review 1 behoben. `JobGoogleFuerJobsReadmeTest` rendert den Codeblock jetzt wirklich (Markdown + HTML, ohne Token). |
+| AK8 | bestanden | `Job::descriptionHtml()`: Markdown ist identisch zu `MarkdownRenderer::render()`, HTML kommt unverändert zurück (auch `<script>`, wie bisher in der Listen-Komponente). Ohne bzw. mit unbekanntem Format wird Markdown gerendert, wie auf `main` über `isMarkdown()`. `grep` über `src/` + README: `isMarkdown`/`MarkdownRenderer::render(` für Jobs nur noch in `src/Data/Job.php`. `jobs.blade.php`, `JobPostingSchema.php` und das README-Beispiel nutzen nur `descriptionHtml()`. Die verbleibenden Treffer stehen in `components/document.blade.php` und `pages/document.blade.php` und betreffen `Document`, nicht `Job` (siehe R2-H4). |
+| AK9 | bestanden | Kopfkommentar `src/Resources/views/components/jobs.blade.php` Z. 8–10 verweist auf `KomponentenInhalt`, `<x-consentlaw::jobs-schema />` und README „Eigenes Markup“. `ConsentLaw::jobs()` steht nicht mehr darin. H1 aus Review 1 ist behoben. |
+
+### Hinweise (nicht blockierend)
+- **R2-H1 — `applicant_countries` als JSON-Objekt:** `Job::countries()` prüft nur `is_array` und nimmt die Werte unabhängig von den Schlüsseln. `{"a":"de","b":"at"}` ergibt `['DE','AT']`. Die Probe in Review 1 („assoziatives Array → `[]`“) hatte offenbar nur ungültige Werte. Laut Vertrag (`string[]`) ist ein Objekt ein falscher Typ, und AK1 verlangt dafür wörtlich eine leere Liste. Weil jeder Wert einzeln geprüft wird, entsteht weder ein Fehler noch ein erfundener Code. Die Abweichung ist also nur formal. Eine strenge Lösung wäre `array_is_list()`. Der Moderator entscheidet, ob AK1 an dieser Stelle verschärft oder die Toleranz in der Spec festgehalten wird.
+- **R2-H2 — URL-Grenzfälle:** `FILTER_VALIDATE_URL` lässt `https://acme.example/"onx=` und `https://acme.example/</script>` als `sameAs`/`logo` durch. Nach RFC 3986 sind `"`, `<` und `>` nicht erlaubt, die AK2-Aufzählung (Leerzeichen, Steuerzeichen, protokollrelativ) schließt sie aber nicht aus. Sicherheitlich ist das unkritisch: Die Werte sind JSON-escaped (`<`, `\"`), das Script wird nicht verlassen. Umgekehrt verwirft die Prüfung IDN-Hosts wie `https://bücher.de` (Punycode geht durch). Beides ist eine Frage der Datenqualität und kein Spec-Bruch.
+- **R2-H3 — `with-schema` nicht in der README:** Die Spec nennt jetzt die gebundene Form `:with-schema="false"`. Die README erwähnt das Attribut nicht. Die statische Form `with-schema="false"` gibt das JSON-LD weiterhin aus (Probe: 2 Scripts), wie auf `main`. H2 aus Review 1 ist damit nur in der Spec, nicht in der Doku erledigt.
+- **R2-H4 — gleiche Fallunterscheidung bei `Document`:** `components/document.blade.php` Z. 34 und `pages/document.blade.php` Z. 19 enthalten je eine eigene `isMarkdown() ? MarkdownRenderer::render(…) : …`. Das liegt außerhalb dieses Features, ist aber genau das Muster, das AK8 für Jobs beseitigt hat (vgl. Doppelaufruf-Veto). Ein `Document::contentHtml()` sollte als eigene Aufgabe angegangen werden.
+- Unverändert seit Review 1: Die JSON-LD-Scripts stehen gesammelt nach dem Listen-`<div>` statt hinter jedem `<article>`. Für Google spielt das keine Rolle, die Spec verlangt keine Position.
+
+## Sicherheit
+- **Ausgabe-Escaping:** JSON-LD wird mit `JSON_HEX_TAG` gebaut. Probe AK6 mit Name, Titel, Ort und Beschreibung: kein Ausbruch. Sichtbare Felder im README-Beispiel (`<summary>{{ $job->title }}</summary>`) und in `jobs.blade.php` werden escaped. `descriptionHtml()` gibt HTML-Beschreibungen roh aus, wie auf `main` in der Listen-Komponente (Vertrauen in consentLaw, keine Verschlechterung). Markdown läuft weiter über den Renderer mit `html_input=strip`.
+- **Validierung:** Die neuen API-Felder werden typstreng geparst. URLs prüfen jetzt Schema, Host, `FILTER_VALIDATE_URL` sowie Leer- und Steuerzeichen. `javascript:`, `data:` und protokollrelative URLs werden abgewiesen.
+- **Mandantentrennung, Autorisierung, Mass-Assignment:** Nicht berührt. Es gibt keine neuen Routen, Controller oder Models.
+- **Token:** Das README-Muster wirft ohne Token nicht und ruft die API nicht auf (Probe).
+
+## Regressionen
+- Volle Suite `../../vendor/bin/phpunit`: **732/732 grün**, 3383 Assertions, PHP 8.5.11 (Review 1: 717, dazu 15 neue Tests).
+- Tests seit dem Rot-Commit f8954b1 unverändert (`git diff f8954b1 HEAD --stat -- tests` leer). Gegenüber Review 1 hat der test-writer in f8954b1 `MarkdownAusgabeTest` angepasst: Er erwartet `MarkdownRenderer::render(` jetzt in `Data/Job.php` statt in `jobs.blade.php`/`JobPostingSchema.php`. Das folgt fachlich aus AK8 und schwächt nichts ab, denn `JobGoogleFuerJobsBeschreibungTest` verbietet zusätzlich die Unterscheidung in Komponente und Schema.
+- Pint `--test` auf allen geänderten PHP-Dateien (src + Tests): bestanden. PHPStan liegt im Workspace nicht vor und ist **nicht geprüft**.
+- Die bisherigen JSON-LD-Felder und das sichtbare Listen-Markup (`<article>`, Meta, Beschreibung) sind gegenüber `main` byte-gleich. Abweichungen: Die Scripts stehen an anderer Stelle, und `@context` ist jetzt korrekt statt zerstört.
+- Nicht-Ziele eingehalten: keine sichtbare Ausgabe von Arbeitgeber/Homeoffice in der Liste, keine weiteren JobPosting-Felder, keine Änderung an consentLaw.
+
+## Fazit: freigegeben
+AK1–AK9 sind nachweislich erfüllt. M1 aus Review 1 ist behoben: Das README-Beispiel rendert Markdown- und HTML-Beschreibungen vollständig, und ein Test rendert den Codeblock wirklich. Ebenfalls behoben sind H1 (Kommentar) und H3 (URL-Prüfung). Offen und nicht blockierend: R2-H1 (formale Abweichung bei `applicant_countries` als JSON-Objekt, Entscheidung beim Moderator), R2-H2 bis R2-H4. PHPStan wurde nicht geprüft.

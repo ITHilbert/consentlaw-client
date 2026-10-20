@@ -174,7 +174,7 @@ MD;
         $erwartet = [
             'Resources/views/components/document.blade.php' => 1,
             'Resources/views/pages/document.blade.php' => 1,
-            'Resources/views/components/jobs.blade.php' => 2, // HTML-Beschreibung + JSON-LD
+            'Data/Job.php' => 1, // Job::descriptionHtml() – einzige Stelle für Job-Beschreibungen (AK8)
         ];
 
         foreach ($erwartet as $datei => $mindestens) {

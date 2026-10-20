@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ITHilbert\ConsentLaw\Data;
 
 use Carbon\CarbonImmutable;
+use ITHilbert\ConsentLaw\Support\MarkdownRenderer;
 
 /**
  * Ein Stellenangebot aus consentLaw.
@@ -24,6 +25,11 @@ final readonly class Job
         public ?CarbonImmutable $datePosted,
         public ?CarbonImmutable $validThrough,
         public bool $isGlobal = false,
+        public ?HiringOrganization $hiringOrganization = null,
+        /** Homeoffice-Stelle (Schema.org jobLocationType TELECOMMUTE). */
+        public bool $remote = false,
+        /** @var list<string> ISO-3166-1-alpha-2-Codes, aus denen Bewerbungen möglich sind. */
+        public array $applicantCountries = [],
     ) {}
 
     /**
@@ -43,7 +49,18 @@ final readonly class Job
             datePosted: self::parseDate($payload['date_posted'] ?? null),
             validThrough: self::parseDate($payload['valid_through'] ?? null),
             isGlobal: (bool) ($payload['is_global'] ?? false),
+            hiringOrganization: HiringOrganization::fromApi($payload['hiring_organization'] ?? null),
+            remote: ($payload['remote'] ?? false) === true,
+            applicantCountries: self::countries($payload['applicant_countries'] ?? null),
         );
+    }
+
+    /** Beschreibung als ausgabefertiges HTML (Markdown gerendert, HTML unverändert). */
+    public function descriptionHtml(): string
+    {
+        return $this->isMarkdown()
+            ? MarkdownRenderer::render($this->description)
+            : $this->description;
     }
 
     public function isMarkdown(): bool
@@ -55,6 +72,25 @@ final readonly class Job
     public function isExpired(): bool
     {
         return $this->validThrough !== null && $this->validThrough->isPast();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function countries(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $codes = [];
+        foreach ($value as $code) {
+            if (is_string($code) && preg_match('/^[A-Za-z]{2}$/', $code) === 1) {
+                $codes[] = strtoupper($code);
+            }
+        }
+
+        return array_values(array_unique($codes));
     }
 
     private static function nullableString(mixed $value): ?string

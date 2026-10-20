@@ -5,10 +5,9 @@
         <x-consentlaw::jobs />
         <x-consentlaw::jobs :include-expired="true" />
 
-    Eigenes Markup gewünscht? Dann statt dieser Komponente direkt die Daten
-    nutzen und im eigenen Layout ausgeben:
-
-        @foreach(ConsentLaw::jobs()->current() as $job) ... @endforeach
+    Eigenes Markup gewünscht? Dann statt dieser Komponente die Daten über
+    KomponentenInhalt holen und das JSON-LD per <x-consentlaw::jobs-schema />
+    ausgeben – Beispiel: README, Abschnitt „Eigenes Markup“.
 
     Das <script type="application/ld+json"> liefert strukturierte Daten für
     Google for Jobs (Schema.org JobPosting).
@@ -41,33 +40,16 @@
                 @endif
 
                 <div class="consentlaw-job__description">
-                    {!! $job->isMarkdown()
-                            ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description)
-                            : $job->description !!}
+                    {!! $job->descriptionHtml() !!}
                 </div>
             </article>
 
-            @if($withSchema)
-                <script type="application/ld+json">
-                    {!! json_encode(array_filter([
-                        '@context' => 'https://schema.org',
-                        '@type' => 'JobPosting',
-                        'title' => $job->title,
-                        'description' => $job->isMarkdown()
-                            ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description)
-                            : $job->description,
-                        'employmentType' => $job->employmentTypeSchema,
-                        'datePosted' => $job->datePosted?->toIso8601String(),
-                        'validThrough' => $job->validThrough?->toIso8601String(),
-                        'jobLocation' => $job->location ? [
-                            '@type' => 'Place',
-                            'address' => ['@type' => 'PostalAddress', 'addressLocality' => $job->location],
-                        ] : null,
-                    ]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}
-                </script>
-            @endif
         @endforeach
     </div>
+
+    @if($withSchema)
+        <x-consentlaw::jobs-schema :jobs="$jobs" />
+    @endif
 @else
     {{ $slot ?? '' }}
 @endif

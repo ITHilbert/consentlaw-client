@@ -97,15 +97,7 @@ ConsentLaw::locale('en')->agb()->content();  // andere Sprache
 ConsentLaw::isConfigured();                  // Token gesetzt?
 ```
 
-Eigenes Markup für Jobs:
-
-```blade
-@foreach(ConsentLaw::jobs()->current() as $job)
-    <h2>{{ $job->title }}</h2>
-    <p>{{ $job->employmentTypeLabel }} · {{ $job->location }}</p>
-    {!! $job->isMarkdown() ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description) : $job->description !!}
-@endforeach
-```
+Eigenes Markup für Jobs: siehe Abschnitt „Eigenes Markup“ weiter unten.
 
 ### Fertige Seiten (optional)
 
@@ -327,6 +319,49 @@ führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
 - **Bekannte Grenze:** Ist der Fallback per `.env` abgeschaltet und das Neu-Laden scheitert,
   kann die Seite bis zum nächsten erfolgreichen Abruf ohne Inhalt sein (Standard: Fallback an).
 
+## Eigenes Markup
+
+Wer Stellenangebote im eigenen Layout ausgibt (z. B. als Aufklapp-Menü) und nicht
+`<x-consentlaw::jobs />` nutzt, setzt drei Bausteine zusammen:
+
+```blade
+@php
+    // Daten: wirft ohne CONSENTLAW_TOKEN nicht (leere Liste + Warnung im Log)
+    $jobs = app(\ITHilbert\ConsentLaw\Support\KomponentenInhalt::class)->jobs(null, false);
+@endphp
+
+{{-- "Neu laden"-Button (erscheint nur bei APP_TEST=true) --}}
+@include('consentlaw::components.partials.neu-laden', ['typ' => 'jobs', 'locale' => null])
+
+@foreach($jobs as $job)
+    <details>
+        <summary>{{ $job->title }}</summary>
+        {!! $job->descriptionHtml() !!}
+    </details>
+@endforeach
+
+{{-- JSON-LD für Google for Jobs (je Stelle ein <script>, sonst keine Ausgabe) --}}
+<x-consentlaw::jobs-schema :jobs="$jobs" />
+```
+
+- **Daten:** `KomponentenInhalt::jobs()` statt `ConsentLaw::jobs()`: Letzteres wirft ohne Token eine
+  `MissingTokenException`.
+- **Beschreibung:** `$job->descriptionHtml()` liefert ausgabefertiges HTML (Markdown gerendert, HTML unverändert) – keine eigene Fallunterscheidung nötig.
+- **JSON-LD:** `<x-consentlaw::jobs-schema>` baut das Schema.org-`JobPosting`; `<x-consentlaw::jobs />` nutzt dieselbe Komponente.
+
+### Felder je Stelle für Google for Jobs
+
+Zusätzlich zu den bisherigen Feldern liefert die API je Stelle (alle optional, fehlende oder
+falsch typisierte Werte ergeben die Standardwerte):
+
+| API-Feld | `Job`-Eigenschaft | Standard | JSON-LD |
+|---|---|---|---|
+| `hiring_organization` (`name`, `url`, `logo`) | `hiringOrganization` (`?HiringOrganization`) | `null` | `hiringOrganization` (`sameAs`/`logo` nur bei absoluter http(s)-URL) |
+| `remote` (bool) | `remote` | `false` | `jobLocationType: TELECOMMUTE` |
+| `applicant_countries` (ISO-3166-1 alpha-2) | `applicantCountries` | `[]` | `applicantLocationRequirements` |
+
+Ein Arbeitgeber ohne Namen gilt als fehlend; Ländercodes werden großgeschrieben, ungültige und doppelte entfallen.
+
 ## Format der Inhalte
 
 consentLaw liefert Inhalte je Endpunkt als Markdown oder HTML. Das `format`-Feld der
@@ -406,6 +441,7 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 
 ### Unveröffentlicht
 
+- **Neu:** Jobs für Google for Jobs: `Job::$hiringOrganization`, `$remote`, `$applicantCountries` und die Komponente `<x-consentlaw::jobs-schema>` (siehe „Eigenes Markup“). Das JSON-LD wird in PHP gebaut; zuvor zerstörte die `@context`-Blade-Direktive es.
 - **Fix:** Die Rückleitung des „Neu laden“-Buttons funktioniert auch ohne Referer (z. B.
   `Referrer-Policy: no-referrer`): Das Formular sendet die aktuelle Adresse im Feld `zurueck`,
   ausgewertet wird nur ein lokaler Pfad.
