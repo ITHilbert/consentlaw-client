@@ -6,6 +6,7 @@ namespace ITHilbert\ConsentLaw\Tests;
 
 use Illuminate\Support\Facades\Blade;
 use ITHilbert\ConsentLaw\Data\Job;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * AK2–AK6 aus .project/features/jobs-google-for-jobs/spec.md – JSON-LD der Jobs.
@@ -84,6 +85,31 @@ final class JobGoogleFuerJobsSchemaTest extends AppTestCase
             'url' => 'javascript:alert(1)',
             'logo' => '/logo.png',
         ]]);
+
+        $this->assertSame(['@type' => 'Organization', 'name' => 'Firma'], $schema['hiringOrganization']);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function ungueltigeUrls(): array
+    {
+        return [
+            'Leerzeichen im Host' => ['https://a b'],
+            'Leerzeichen im Pfad' => ['https://example.org/mein logo.png'],
+            'führendes Leerzeichen' => [' https://example.org'],
+            'Steuerzeichen im Host' => ["https://exa\x00mple.org"],
+            'Zeilenumbruch im Pfad' => ["https://example.org/a\nb"],
+            'Tabulator' => ["https://example.org/\tlogo.png"],
+            'ohne Host' => ['https://'],
+            'ohne Host, mit Pfad' => ['https:///logo.png'],
+            'protokollrelativ' => ['//example.org/logo.png'],
+        ];
+    }
+
+    // AK2
+    #[DataProvider('ungueltigeUrls')]
+    public function test_ungueltige_urls_ergeben_weder_same_as_noch_logo(string $url): void
+    {
+        $schema = $this->schemaAusApi(['hiring_organization' => ['name' => 'Firma', 'url' => $url, 'logo' => $url]]);
 
         $this->assertSame(['@type' => 'Organization', 'name' => 'Firma'], $schema['hiringOrganization']);
     }
