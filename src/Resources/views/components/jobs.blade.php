@@ -5,10 +5,9 @@
         <x-consentlaw::jobs />
         <x-consentlaw::jobs :include-expired="true" />
 
-    Eigenes Markup gewünscht? Dann statt dieser Komponente direkt die Daten
-    nutzen und im eigenen Layout ausgeben:
-
-        @foreach(ConsentLaw::jobs()->current() as $job) ... @endforeach
+    Eigenes Markup gewünscht? Dann statt dieser Komponente die Daten über
+    KomponentenInhalt holen und das JSON-LD per <x-consentlaw::jobs-schema />
+    ausgeben – Beispiel: README, Abschnitt „Eigenes Markup“.
 
     Das <script type="application/ld+json"> liefert strukturierte Daten für
     Google for Jobs (Schema.org JobPosting).
@@ -41,9 +40,7 @@
                 @endif
 
                 <div class="consentlaw-job__description">
-                    {!! $job->isMarkdown()
-                            ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description)
-                            : $job->description !!}
+                    {!! $job->descriptionHtml() !!}
                 </div>
             </article>
 

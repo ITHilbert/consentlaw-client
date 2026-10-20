@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ITHilbert\ConsentLaw\Data;
 
 use Carbon\CarbonImmutable;
+use ITHilbert\ConsentLaw\Support\MarkdownRenderer;
 
 /**
  * Ein Stellenangebot aus consentLaw.
@@ -52,6 +53,14 @@ final readonly class Job
             remote: ($payload['remote'] ?? false) === true,
             applicantCountries: self::countries($payload['applicant_countries'] ?? null),
         );
+    }
+
+    /** Beschreibung als ausgabefertiges HTML (Markdown gerendert, HTML unverändert). */
+    public function descriptionHtml(): string
+    {
+        return $this->isMarkdown()
+            ? MarkdownRenderer::render($this->description)
+            : $this->description;
     }
 
     public function isMarkdown(): bool

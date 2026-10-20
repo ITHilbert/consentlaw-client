@@ -24,9 +24,7 @@ final class JobPostingSchema
             '@context' => 'https://schema.org',
             '@type' => 'JobPosting',
             'title' => $job->title,
-            'description' => $job->isMarkdown()
-                ? MarkdownRenderer::render($job->description)
-                : $job->description,
+            'description' => $job->descriptionHtml(),
             'employmentType' => $job->employmentTypeSchema,
             'datePosted' => $job->datePosted?->toIso8601String(),
             'validThrough' => $job->validThrough?->toIso8601String(),
@@ -69,10 +67,17 @@ final class JobPostingSchema
 
     private static function absoluteUrl(?string $url): ?string
     {
-        if ($url === null) {
+        if ($url === null || preg_match('/[\s\x00-\x1F\x7F]/', $url) === 1) {
             return null;
         }
 
-        return preg_match('#^https?://[^\s/]+#i', $url) === 1 ? $url : null;
+        $teile = parse_url($url);
+        if ($teile === false || ! in_array(strtolower((string) ($teile['scheme'] ?? '')), ['http', 'https'], true)
+            || ($teile['host'] ?? '') === ''
+            || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+
+        return $url;
     }
 }

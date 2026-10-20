@@ -97,15 +97,7 @@ ConsentLaw::locale('en')->agb()->content();  // andere Sprache
 ConsentLaw::isConfigured();                  // Token gesetzt?
 ```
 
-Eigenes Markup für Jobs:
-
-```blade
-@foreach(ConsentLaw::jobs()->current() as $job)
-    <h2>{{ $job->title }}</h2>
-    <p>{{ $job->employmentTypeLabel }} · {{ $job->location }}</p>
-    {!! $job->isMarkdown() ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description) : $job->description !!}
-@endforeach
-```
+Eigenes Markup für Jobs: siehe Abschnitt „Eigenes Markup“ weiter unten.
 
 ### Fertige Seiten (optional)
 
@@ -344,7 +336,7 @@ Wer Stellenangebote im eigenen Layout ausgibt (z. B. als Aufklapp-Menü) und nic
 @foreach($jobs as $job)
     <details>
         <summary>{{ $job->title }}</summary>
-        {!! \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($job->description) !!}
+        {!! $job->descriptionHtml() !!}
     </details>
 @endforeach
 
@@ -354,7 +346,7 @@ Wer Stellenangebote im eigenen Layout ausgibt (z. B. als Aufklapp-Menü) und nic
 
 - **Daten:** `KomponentenInhalt::jobs()` statt `ConsentLaw::jobs()`: Letzteres wirft ohne Token eine
   `MissingTokenException`.
-- **Beschreibung:** `$job->isMarkdown()` zeigt das Format an; Markdown immer über `MarkdownRenderer::render()` ausgeben.
+- **Beschreibung:** `$job->descriptionHtml()` liefert ausgabefertiges HTML (Markdown gerendert, HTML unverändert) – keine eigene Fallunterscheidung nötig.
 - **JSON-LD:** `<x-consentlaw::jobs-schema>` baut das Schema.org-`JobPosting`; `<x-consentlaw::jobs />` nutzt dieselbe Komponente.
 
 ### Felder je Stelle für Google for Jobs
