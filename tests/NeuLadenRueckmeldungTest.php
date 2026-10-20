@@ -73,9 +73,9 @@ final class NeuLadenRueckmeldungTest extends AppTestCase
      * Schalter an, Test-Seiten registriert, Sitzung (Cookie) angelegt.
      * Der Token ist erkennbar, damit ein Durchsickern auffällt (AK5, Randfall).
      */
-    private function bereit(bool $mitSession = true): void
+    private function bereit(bool $mitSession = true, string $umgebung = 'local'): void
     {
-        $this->appNeuBauen('local', ['refresh_button' => true]);
+        $this->appNeuBauen($umgebung, ['refresh_button' => true]);
         $this->konfig('token', self::GEHEIM);
 
         $router = $this->app['router'];
@@ -84,11 +84,6 @@ final class NeuLadenRueckmeldungTest extends AppTestCase
         $router->middleware('web')->get('/gemischt', static fn (): string => Blade::render(
             '<x-consentlaw::jobs /><x-consentlaw::impressum /><x-consentlaw::impressum locale="en" /><x-consentlaw::datenschutz />'
         ));
-        // Nur der Button samt Meldung, ohne Dokument-Abruf (der bei leerem Token selbst eine Ausnahme wirft).
-        $router->middleware('web')->get('/nur-button', static fn (): string => Blade::render(
-            "@include('consentlaw::components.partials.neu-laden', ['typ' => 'impressum', 'locale' => null])"
-        ));
-
         $this->cookies = [];
 
         if ($mitSession) {
@@ -428,7 +423,7 @@ final class NeuLadenRueckmeldungTest extends AppTestCase
         $this->bereit();
         $this->konfig('token', '');
         $this->apiAlle($this->dokumentPayload('Neu-Impressum'));
-        $vorher = $this->seite('/nur-button');
+        $vorher = $this->seite('/impressum');
 
         [$status, $antwort] = $this->absenden($vorher);
         $html = $this->folge($status, $antwort);
@@ -638,6 +633,83 @@ final class NeuLadenRueckmeldungTest extends AppTestCase
         $this->assertStringNotContainsString('Neu laden', $html);
         $this->assertStringNotContainsString('Neu geladen', $html);
         $this->assertSame([], $this->meldungen($html));
+    }
+
+    // ── AK11: Seite ohne Token ───────────────────────────────────────────────
+
+    /** @return array<string, array{string}> */
+    public static function umgebungen(): array
+    {
+        return ['local' => ['local'], 'production' => ['production']];
+    }
+
+    // AK11
+    #[DataProvider('umgebungen')]
+    public function test_komponenten_rendern_ohne_token_mit_200_und_button_ohne_api_aufruf(string $umgebung): void
+    {
+        $this->bereit(umgebung: $umgebung);
+        $this->konfig('token', '');
+        $this->apiAlle($this->dokumentPayload('Inhalt'));
+
+        foreach (['/impressum', '/jobs', '/gemischt'] as $pfad) {
+            $html = $this->seite($pfad); // seite() prüft 200
+            $this->assertStringContainsString('consentlaw-refresh', $html, "Button auf {$pfad} sichtbar.");
+            $this->assertStringNotContainsString('Inhalt', $html);
+            $this->assertKeineMeldung($html);
+        }
+
+        $this->assertSame(0, $this->anzahlAufrufe(), 'Ohne Token gibt es keinen API-Aufruf.');
+    }
+
+    // AK11
+    public function test_document_komponente_und_slot_fall_ohne_token(): void
+    {
+        $this->bereit();
+        $this->konfig('token', '');
+        $this->app['router']->middleware('web')->get('/doc', static fn (): string => Blade::render(
+            '<x-consentlaw::document type="agb">Slot-Inhalt</x-consentlaw::document><x-consentlaw::jobs>Jobs-Slot</x-consentlaw::jobs>'
+        ));
+
+        $html = $this->seite('/doc');
+
+        $this->assertStringContainsString('Slot-Inhalt', $html, 'Wie „kein Inhalt verfügbar“: der Slot erscheint.');
+        $this->assertStringContainsString('Jobs-Slot', $html);
+        $this->assertStringContainsString('consentlaw-refresh', $html);
+        $this->assertSame(0, $this->anzahlAufrufe());
+    }
+
+    // AK11
+    public function test_ohne_token_steht_eine_warnung_im_log(): void
+    {
+        $this->bereit();
+        $this->konfig('token', '');
+
+        $this->seite('/impressum');
+
+        $this->assertMatchesRegularExpression('/^WARNING .*CONSENTLAW_TOKEN fehlt/m', $this->logText());
+    }
+
+    // AK11
+    public function test_ohne_token_funktioniert_der_ablauf_auf_der_komponenten_seite_ende_zu_ende(): void
+    {
+        $this->bereit();
+        $this->konfig('token', '');
+
+        $html = $this->neuLadenUndZurueck('/jobs', 'jobs');
+
+        $this->assertMeldung($html, self::TEXT_KEIN_TOKEN, 'fehler');
+        $this->assertSame(0, $this->anzahlAufrufe());
+    }
+
+    // AK11 (Nicht-Ziel: die PHP-API wirft weiter)
+    public function test_die_php_api_wirft_ohne_token_weiter_missing_token_exception(): void
+    {
+        $this->bereit();
+        $this->konfig('token', '');
+
+        $this->expectException(\ITHilbert\ConsentLaw\Exceptions\MissingTokenException::class);
+
+        $this->client()->document('impressum');
     }
 
     // ── Randfälle ────────────────────────────────────────────────────────────
