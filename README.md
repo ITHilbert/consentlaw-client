@@ -206,8 +206,9 @@ diesen Typ frisch von consentLaw (Cache und Wartezeit nach einer Störung werden
 Fallback-Datei wird aktualisiert) und leitet auf die vorherige Seite zurück. Eine Störung
 führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
 
-- **Standard aus:** Ohne den Schalter ist die Route (`POST consentlaw/neu-laden/{typ}`,
-  Name `consentlaw.neu-laden`) nicht registriert.
+- **Standard aus:** Die Route (`POST consentlaw/neu-laden/{typ}`, Name `consentlaw.neu-laden`)
+  und das Limit sind immer registriert; ohne den Schalter antwortet die Aktion mit 404, ohne
+  die API aufzurufen, und es erscheint kein Button.
 - **Alternative ohne Button:** `php artisan consentlaw:warm`.
 - **CSRF-Hinweis:** Homepages, deren `web`-Gruppe weder `StartSession` noch `VerifyCsrfToken`
   enthält, haben für diese Route keinen CSRF-Schutz. Solange `APP_TEST` an ist, kann dann eine
@@ -321,16 +322,21 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
   das Partial `partials/neu-laden.blade.php` neu übernehmen und das `@include` in eigenen Kopien
   von `document` und `jobs` an den Anfang setzen.
 - `NeuLadenFreigabe` hängt nicht mehr von `Application` ab.
+- Route und Limiter `consentlaw-neu-laden` sind jetzt immer registriert; die Freigabe prüft nur
+  noch die Aktion (ohne Schalter 404 ohne API-Aufruf) und das Partial (Button). Damit ist es
+  egal, ob die Routen gecacht sind (`route:cache`). Bei gecachter Config nach einer Änderung an
+  `APP_TEST` `php artisan config:clear` ausführen.
 
 ## Upgrade auf 1.2
 
-- Neu: „Neu laden“-Button (siehe „Neu laden per Button“). Er ist standardmäßig **aus** –
-  bestehende Installationen ändern sich nicht.
-- Neuer Config-Schlüssel `refresh_button` (ENV `APP_TEST`, Standard
+- Neu: „Neu laden“-Button für Entwicklung und Test (siehe „Neu laden per Button
+  (Entwicklung)“). Er ist standardmäßig **aus** und auf Production nie aktiv – bestehende
+  Installationen ändern sich nicht.
+- Neuer Config-Schlüssel `refresh_button` (ENV `CONSENTLAW_REFRESH_BUTTON`, Standard
   `false`). Bei veröffentlichter Config (`vendor:publish`) den Schlüssel ergänzen.
 - Bei veröffentlichten Views (`consentlaw-views`) die neue Teilansicht
   `components/partials/neu-laden.blade.php` übernehmen und in eigenen Kopien von
-  `components/document.blade.php` und `components/jobs.blade.php` am Anfang einbinden:
+  `components/document.blade.php` und `components/jobs.blade.php` am Ende einbinden:
   `@include('consentlaw::components.partials.neu-laden', ['typ' => $type, 'locale' => $locale])` (Jobs: `['typ' => 'jobs', 'locale' => $locale]`). Ohne `locale` lädt der Button bei Komponenten mit Sprachangabe die falsche Variante.
 - Die Route nutzt die Middleware-Gruppe `web` und den Alias `throttle`; beides bringt jede
   Laravel-App mit.

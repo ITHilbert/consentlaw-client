@@ -19,7 +19,6 @@ use ITHilbert\ConsentLaw\Contracts\Transport;
 use ITHilbert\ConsentLaw\Support\ContentResolver;
 use ITHilbert\ConsentLaw\Support\FileFallbackStore;
 use ITHilbert\ConsentLaw\Support\HttpTransport;
-use ITHilbert\ConsentLaw\Support\NeuLadenFreigabe;
 
 class ConsentLawServiceProvider extends ServiceProvider
 {
@@ -130,15 +129,12 @@ class ConsentLawServiceProvider extends ServiceProvider
     }
 
     /**
-     * Registriert die Route des „Neu laden“-Buttons – nur bei Freigabe
-     * (Schalter `APP_TEST` an, siehe NeuLadenFreigabe).
+     * Registriert Route und Rate-Limiter des „Neu laden“-Buttons immer. Die Freigabe
+     * (Schalter `APP_TEST`, siehe NeuLadenFreigabe) prüfen nur Aktion und Partial: Ein
+     * Route-Cache friert den Stand ein, ein schalterabhängig fehlender Limiter wäre ein 500.
      */
     private function registerNeuLadenRoute(): void
     {
-        if (! $this->app->make(NeuLadenFreigabe::class)->aktiv()) {
-            return;
-        }
-
         RateLimiter::for('consentlaw-neu-laden', static fn (Request $request): Limit => Limit::perMinute(6)->by((string) $request->ip()));
 
         Route::middleware(['web', 'throttle:consentlaw-neu-laden'])

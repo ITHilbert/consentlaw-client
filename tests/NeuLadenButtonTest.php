@@ -1406,16 +1406,19 @@ final class NeuLadenButtonTest extends AppTestCase
 
         $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Die Route gehört in jeden Cache, unabhängig vom Schalter.');
 
+        $this->sessionToken();
         $html = $this->rendere('<x-consentlaw::impressum />');
         $this->assertStringContainsString(self::ALT, $html);
         $this->assertButtonFuer('impressum', $html);
+        $aufrufeNachRender = $this->anzahlAufrufe();
+        $this->assertSame(1, $aufrufeNachRender, 'Vorbedingung: Nur der Abruf beim Rendern.');
 
         $this->api(['*' => $this->dokumentPayload(self::NEU)]);
         [$status, $antwort] = $this->postNeuLaden('impressum', referer: 'http://localhost/impressum');
 
         $this->assertSame(302, $status);
         $this->assertSame('http://localhost/impressum', $this->ziel($antwort));
-        $this->assertSame(1, $this->anzahlAufrufe(), 'Der Neu-laden-Abruf hat stattgefunden.');
+        $this->assertSame($aufrufeNachRender + 1, $this->anzahlAufrufe(), 'Genau ein zusätzlicher HTTP-Aufruf.');
         $this->assertStringContainsString(self::NEU, $this->rendere('<x-consentlaw::impressum />'));
     }
 
@@ -1426,12 +1429,14 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->appMitRouteCache($cache, true);
         $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
         $this->rendere('<x-consentlaw::jobs />');
+        $aufrufeNachRender = $this->anzahlAufrufe();
+        $this->assertSame(1, $aufrufeNachRender, 'Vorbedingung: Nur der Abruf beim Rendern.');
 
         $this->api(['*' => $this->jobsPayload(['title' => 'Neu-Stelle'])]);
         [$status] = $this->postNeuLaden('jobs');
 
         $this->assertSame(302, $status);
-        $this->assertSame(1, $this->anzahlAufrufe());
+        $this->assertSame($aufrufeNachRender + 1, $this->anzahlAufrufe(), 'Genau ein zusätzlicher HTTP-Aufruf.');
         $this->assertStringContainsString('Neu-Stelle', $this->rendere('<x-consentlaw::jobs />'));
     }
 

@@ -6,7 +6,7 @@
     Darstellung: dezentes Entwicklungswerkzeug; die Regeln im <style>-Block haben niedrige Spezifität
     (eine Klasse) und lassen sich über .consentlaw-refresh im Seiten-CSS überschreiben. Keine externen Assets.
 --}}
-@if(app(\ITHilbert\ConsentLaw\Support\NeuLadenFreigabe::class)->aktiv() && \Illuminate\Support\Facades\Route::has('consentlaw.neu-laden'))
+@if(app(\ITHilbert\ConsentLaw\Support\NeuLadenFreigabe::class)->aktiv())
     <style>
         .consentlaw-refresh { display: block; margin: 0 0 1rem; padding: 0; }
         .consentlaw-refresh button {
