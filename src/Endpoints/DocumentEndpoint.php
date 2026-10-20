@@ -49,12 +49,25 @@ final readonly class DocumentEndpoint
             return new Abrufergebnis($abruf->status, null);
         }
 
-        return new Abrufergebnis($abruf->status, Document::fromApi(
+        return new Abrufergebnis($abruf->status, inhalt: Document::fromApi(
             type: $this->type,
             payload: $abruf->payload,
             isStale: $abruf->isStale(),
             fetchedAt: $abruf->fetchedAt,
-        ));
+        ), stand: $abruf->fetchedAt);
+    }
+
+    /**
+     * Verwirft Cache-Eintrag und Sperrvermerk und ruft sofort frisch ab.
+     * Die eine Stelle für „Neu laden“ (Button und `consentlaw:reload`).
+     *
+     * @return Abrufergebnis<Document>
+     */
+    public function neuLaden(): Abrufergebnis
+    {
+        $this->forget();
+
+        return $this->abrufen();
     }
 
     /** Nur der Inhalt, leerer String wenn nichts verfügbar ist. */

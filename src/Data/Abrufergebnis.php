@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Data;
 
+use Carbon\CarbonImmutable;
+
 /**
  * Ergebnis eines Endpoint-Abrufs: der Inhalt und der Grund, warum er (nicht) da ist.
  *
@@ -20,5 +22,7 @@ final readonly class Abrufergebnis
     public function __construct(
         public Abrufstatus $status,
         public mixed $inhalt,
+        /** Zeitpunkt des gelieferten Stands (Abruf bzw. Fallback-Stand); null, wenn nichts geliefert wurde. */
+        public ?CarbonImmutable $stand = null,
     ) {}
 }

@@ -301,6 +301,16 @@ führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
   gültiges CSRF-Token (Middleware-Gruppe `web`, siehe CSRF-Hinweis). Die Rückleitung geht nur auf die eigene
   Domain. Hinter einem Reverse Proxy ohne konfigurierte Trusted Proxies teilen sich alle
   Besucher eine IP und damit das Limit.
+- **Rückmeldung:** Hat die Seite eine Session (Gruppe `web`), zeigt die Komponente nach dem Neu laden
+  einmalig eine Meldung (`role="status"`, Klassen `consentlaw-refresh-meldung` und `--ok` bzw. `--fehler`):
+  Erfolg mit Stand, Störung mit gespeichertem Stand, Störung ohne Stand, „nicht veröffentlicht oder Token
+  ungültig“ oder „kein Token konfiguriert“. Die Meldung erscheint nur bei der Komponente (Typ und Sprache),
+  deren Button ausgelöst wurde, und enthält nie Token, URLs oder Exception-Texte. Ohne Session funktioniert
+  das Neu laden wie bisher, nur ohne Meldung.
+- **Ohne Token:** Fehlt `CONSENTLAW_TOKEN`, rendern die Komponenten (`document`, `impressum` …, `jobs`)
+  ohne API-Aufruf wie bei „kein Inhalt verfügbar“ (leer bzw. Slot) und schreiben eine Warnung ins Log;
+  die Seite antwortet mit 200. Die PHP-API (`ConsentLaw::document()`, `jobs()`) wirft weiterhin
+  `MissingTokenException`.
 - **Darstellung:** dezentes Entwicklungswerkzeug (kleiner Button mit gestricheltem Rand); das
   Partial bringt einen eigenen `<style>`-Block mit niedriger Spezifität mit, das Formular trägt
   die Klasse `consentlaw-refresh` und lässt sich im Seiten-CSS überschreiben. Eigenes Markup
