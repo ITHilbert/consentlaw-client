@@ -59,7 +59,20 @@ final readonly class JobsEndpoint
         return new Abrufergebnis($abruf->status, collect($jobs)
             ->filter(static fn (mixed $row): bool => is_array($row))
             ->map(static fn (array $row): Job => Job::fromApi($row))
-            ->values());
+            ->values(), stand: $abruf->fetchedAt);
+    }
+
+    /**
+     * Verwirft Cache-Eintrag und Sperrvermerk und ruft sofort frisch ab.
+     * Die eine Stelle für „Neu laden“ (Button und `consentlaw:reload`).
+     *
+     * @return Abrufergebnis<Collection<int, Job>>
+     */
+    public function neuLaden(): Abrufergebnis
+    {
+        $this->forget();
+
+        return $this->abrufen();
     }
 
     /**
@@ -92,9 +105,7 @@ final readonly class JobsEndpoint
      */
     public function refresh(): Collection
     {
-        $this->forget();
-
-        return $this->all();
+        return $this->neuLaden()->inhalt;
     }
 
     /** Verwirft Cache-Eintrag und Sperrvermerk (Fallback-Datei bleibt erhalten). */

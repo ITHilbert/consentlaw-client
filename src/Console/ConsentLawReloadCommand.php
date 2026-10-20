@@ -45,9 +45,7 @@ final class ConsentLawReloadCommand extends Command
         $typen = count(ConsentLawClient::DOCUMENT_TYPES) + 1; // Dokumente + Jobs
 
         foreach (array_keys(ConsentLawClient::DOCUMENT_TYPES) as $type) {
-            $endpoint = $client->document($type);
-            $endpoint->forget();
-            $abruf = $endpoint->abrufen();
+            $abruf = $client->document($type)->neuLaden();
 
             switch ($abruf->status) {
                 case Abrufstatus::NichtVeroeffentlicht:
@@ -81,9 +79,7 @@ final class ConsentLawReloadCommand extends Command
             }
         }
 
-        $jobsEndpoint = $client->jobs();
-        $jobsEndpoint->forget();
-        $jobs = $jobsEndpoint->abrufen();
+        $jobs = $client->jobs()->neuLaden();
 
         switch ($jobs->status) {
             case Abrufstatus::NichtVeroeffentlicht:

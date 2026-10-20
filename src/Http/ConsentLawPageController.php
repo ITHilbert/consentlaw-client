@@ -6,14 +6,14 @@ namespace ITHilbert\ConsentLaw\Http;
 
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use ITHilbert\ConsentLaw\ConsentLawClient;
+use ITHilbert\ConsentLaw\Support\KomponentenInhalt;
 
 /**
  * Rendert die optionalen Fertig-Seiten (nur aktiv bei consentlaw.routes.enabled).
  */
 final class ConsentLawPageController
 {
-    public function __construct(private readonly ConsentLawClient $client) {}
+    public function __construct(private readonly KomponentenInhalt $inhalt) {}
 
     public function show(Request $request): View
     {
@@ -22,12 +22,12 @@ final class ConsentLawPageController
 
         if ($type === 'jobs') {
             return view('consentlaw::pages.jobs', [
-                'jobs' => $this->client->jobs()->current(),
+                'jobs' => $this->inhalt->jobs(null, false),
                 'layout' => config('consentlaw.routes.layout'),
             ]);
         }
 
-        $document = $this->client->document($type)->get();
+        $document = $this->inhalt->dokument($type, null);
 
         abort_if($document === null || $document->isEmpty(), 404);
 

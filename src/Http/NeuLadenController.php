@@ -7,8 +7,12 @@ namespace ITHilbert\ConsentLaw\Http;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use ITHilbert\ConsentLaw\ConsentLawClient;
+use ITHilbert\ConsentLaw\Data\Abrufergebnis;
+use ITHilbert\ConsentLaw\Data\Abrufstatus;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawException;
+use ITHilbert\ConsentLaw\Exceptions\MissingTokenException;
 use ITHilbert\ConsentLaw\Support\NeuLadenFreigabe;
+use ITHilbert\ConsentLaw\Support\NeuLadenRueckmeldung;
 
 /**
  * Lädt einen Inhalt per Button frisch von consentLaw (nur bei freigegebenem Button,
@@ -23,6 +27,7 @@ final class NeuLadenController
     public function __construct(
         private readonly ConsentLawClient $client,
         private readonly NeuLadenFreigabe $freigabe,
+        private readonly NeuLadenRueckmeldung $rueckmeldung,
     ) {}
 
     public function __invoke(Request $request, string $typ): RedirectResponse
@@ -39,11 +44,17 @@ final class NeuLadenController
         $client = $locale === null ? $this->client : $this->client->locale($locale);
 
         try {
-            $istDokument ? $client->document($typ)->refresh() : $client->jobs()->refresh();
+            $ergebnis = $istDokument ? $client->document($typ)->neuLaden() : $client->jobs()->neuLaden();
+            $rueckmeldung = $this->rueckmeldung->aus($ergebnis);
+        } catch (MissingTokenException) {
+            $rueckmeldung = $this->rueckmeldung->keinToken();
         } catch (ConsentLawException) {
-            // Störung (z. B. fehlender Token): Der Resolver hat sie bereits protokolliert,
-            // der Nutzer sieht den bisherigen Stand bzw. den Fallback – keine Fehlerseite.
+            // Sonstige Störung: Der Resolver hat sie bereits protokolliert, der Nutzer sieht
+            // den bisherigen Stand bzw. den Fallback – keine Fehlerseite.
+            $rueckmeldung = $this->rueckmeldung->aus(new Abrufergebnis(Abrufstatus::Stoerung, null));
         }
+
+        $this->rueckmeldung->ablegen($request, $typ, $locale, $rueckmeldung);
 
         return redirect()->to($this->rueckleitung($request));
     }
