@@ -10,8 +10,14 @@ Spec: [spec.md](spec.md) · Branch: `feature/stoerungs-meldung`
 
 ## Aufgaben
 - [x] T0 TESTS: `test-writer` — AK1–AK9, Rot-Nachweis.
-- [ ] T1 (AK1–AK9) [senior] Events, Listener, Mail-Vorlage, Sperre, Config, README.
+- [x] T1 (AK1–AK9) [senior] Events, Listener, Mail-Vorlage, Sperre, Config, README.
 - [ ] NACHWEIS · REVIEW
 
 ## Stand
-Rote Tests committet (583 Tests, 48 rot in StoerungsEventsTest/StoerungsMailTest). Als Nächstes T1 [senior].
+T1 umgesetzt, 583/583 grün (auch mit APP_TEST), Pint grün. Echter Lauf (Kopie it-hilbert.com, Mail ins Log): drei Fälle je eine Mail an zwei Empfänger, Sperre greift, Token nie im Log. Als Nächstes REVIEW.
+
+## Entscheidungen (Moderator)
+- HANDOFF T1: `test_standardwerte_der_alerts_config` war unerfüllbar (`?? 'fehlt'` mit `assertNull`) → Korrektur durch `test-writer`.
+- 24-h-Sperre bleibt auch nach gescheitertem Versand (sonst wartet bei kaputtem SMTP jeder Seitenaufruf auf den Timeout).
+- Fremde Listener auf die Events werden nicht abgesichert (Laravel-Konvention); AK9 gilt für den eigenen Mailversand.
+- Echter Lauf zeigte: ohne `MAIL_FROM_ADDRESS` scheitert der Versand (AK9 greift) → README-Hinweis.

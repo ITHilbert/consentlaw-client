@@ -75,7 +75,8 @@ final class StoerungsMailTest extends AppTestCase
 
         $this->assertIsArray($alerts, 'Config-Block consentlaw.alerts fehlt.');
         $this->assertContains($alerts['mail'] ?? null, [null, ''], 'Ohne Adresse keine Mail.');
-        $this->assertNull($alerts['mailer'] ?? 'fehlt');
+        $this->assertArrayHasKey('mailer', $alerts);
+        $this->assertNull($alerts['mailer']);
         $this->assertTrue($alerts['mail_listener'] ?? null);
     }
 

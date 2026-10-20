@@ -6,16 +6,21 @@ namespace ITHilbert\ConsentLaw;
 
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use ITHilbert\ConsentLaw\Benachrichtigung\MeldeStoerungPerMail;
 use ITHilbert\ConsentLaw\Console\ConsentLawFlushCommand;
 use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
 use ITHilbert\ConsentLaw\Contracts\FallbackStore;
 use ITHilbert\ConsentLaw\Contracts\Transport;
+use ITHilbert\ConsentLaw\Events\NotstandVeraltet;
+use ITHilbert\ConsentLaw\Events\RechtstextNichtLieferbar;
+use ITHilbert\ConsentLaw\Events\TokenVermutlichUngueltig;
 use ITHilbert\ConsentLaw\Support\ContentResolver;
 use ITHilbert\ConsentLaw\Support\FileFallbackStore;
 use ITHilbert\ConsentLaw\Support\HttpTransport;
@@ -55,6 +60,7 @@ class ConsentLawServiceProvider extends ServiceProvider
                 transport: $app->make(Transport::class),
                 cache: $app->make(CacheFactory::class)->store($config['cache']['store']),
                 fallback: $app->make(FallbackStore::class),
+                events: $app->make(Dispatcher::class),
                 cacheEnabled: (bool) $config['cache']['enabled'],
                 ttl: (int) $config['cache']['ttl'],
                 cachePrefix: (string) $config['cache']['prefix'],
@@ -83,6 +89,7 @@ class ConsentLawServiceProvider extends ServiceProvider
 
         $this->registerOptionalRoutes();
         $this->registerNeuLadenRoute();
+        $this->registerStoerungsMail();
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -126,6 +133,23 @@ class ConsentLawServiceProvider extends ServiceProvider
                         ->name("consentlaw.{$type}");
                 }
             });
+    }
+
+    /**
+     * Hängt den mitgelieferten Mail-Listener an die drei Störungs-Events – außer er ist per
+     * `consentlaw.alerts.mail_listener` abgeschaltet (z. B. weil ein Alert-Package die Events
+     * übernimmt). Die Events selbst werden immer ausgelöst.
+     */
+    private function registerStoerungsMail(): void
+    {
+        if (! (bool) $this->app['config']->get('consentlaw.alerts.mail_listener', true)) {
+            return;
+        }
+
+        $this->app->make(Dispatcher::class)->listen(
+            [RechtstextNichtLieferbar::class, TokenVermutlichUngueltig::class, NotstandVeraltet::class],
+            MeldeStoerungPerMail::class,
+        );
     }
 
     /**

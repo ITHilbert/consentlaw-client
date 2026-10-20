@@ -169,6 +169,61 @@ werden konnte – so scheitern Deploy-Skripte nur bei echten Problemen.
 Antworten **alle** Typen (5 Dokumente und Jobs) mit 404, ist fast sicher der Token
 ungültig: Dann endet der Befehl mit Exit-Code 1 und dem Hinweis, den Token zu prüfen.
 
+## Störungsmeldung per Mail
+
+Fehlende oder veraltete Rechtstexte sind abmahnfähig – ein Log liest niemand. Das Package
+meldet deshalb drei Störungsfälle als **Event** (Namespace `ITHilbert\ConsentLaw\Events`):
+
+| Event | Wann | Properties |
+|---|---|---|
+| `RechtstextNichtLieferbar` | API gestört (kein 404) und kein Fallback vorhanden bzw. Fallback abgeschaltet – der Inhalt fehlt auf der Seite | `typ`, `locale`, `fehler` |
+| `NotstandVeraltet` | API gestört, ausgeliefert wird ein Fallback, der älter ist als `CONSENTLAW_FALLBACK_WARN_AFTER` (Standard 7 Tage). Der Inhalt bleibt sichtbar | `typ`, `locale`, `alterInSekunden`, `fehler` |
+| `TokenVermutlichUngueltig` | `consentlaw:reload`: **alle** Typen antworten mit 404 (Exit-Code und Ausgabe wie bisher) | – |
+
+`RechtstextNichtLieferbar` und `NotstandVeraltet` entstehen beim Seitenaufruf, beim
+„Neu laden“-Button und bei `consentlaw:reload` – aber nur, wenn wirklich abgerufen wurde:
+Während der Wartezeit nach einer Störung (`CONSENTLAW_FALLBACK_RETRY_AFTER`) wird nicht
+abgerufen und deshalb auch nichts gemeldet. Ein einzelnes 404 („nicht veröffentlicht“,
+z. B. ein Kunde ohne AGB) ist keine Störung. `fehler` enthält den Token nur maskiert.
+
+Ein mitgelieferter Listener schickt zu jedem Event eine Mail:
+
+```dotenv
+CONSENTLAW_ALERT_MAIL=admin@example.com,technik@example.com
+# optional: anderer Mailer aus config/mail.php (Standard: Mailer der App, MAIL_*)
+CONSENTLAW_ALERT_MAILER=
+```
+
+- **Empfänger:** eine oder mehrere Adressen, kommagetrennt. Leer = keine Mail (die Events
+  werden trotzdem ausgelöst).
+- **Absender:** kommt aus der Mail-Konfiguration der App (`MAIL_FROM_ADDRESS`). Ist er nicht
+  gesetzt (z. B. `MAIL_FROM_ADDRESS=null`), scheitert der Versand – das steht dann nur als
+  `[consentlaw] Störungsmeldung per Mail fehlgeschlagen` im Log, und die 24-h-Sperre greift trotzdem.
+- **Inhalt:** Website (`APP_URL`), Fall, Typ (und Sprache), Zeitpunkt, Fehlertext (Token
+  maskiert), beim veralteten Notstand das Alter in Tagen, und was zu tun ist.
+- **Keine Mailflut:** höchstens **eine Mail je Fall und 24 Stunden** – unabhängig von Typ
+  und Anzahl der Seitenaufrufe. Die Sperre liegt im Cache-Store des Packages
+  (`CONSENTLAW_CACHE_STORE`); sie gilt auch, wenn der Versand scheitert. Die Mail nennt den
+  auslösenden Typ; weitere Typen können betroffen sein.
+- **Versand synchron**, ohne Queue – die Meldung hängt nicht an einem Queue-Worker. Schlägt
+  der Versand fehl (z. B. SMTP nicht erreichbar), wird das als `error` geloggt; Seitenaufruf
+  und `consentlaw:reload` verhalten sich wie ohne Mail.
+- **Vorlage überschreiben:** `php artisan vendor:publish --tag=consentlaw-views`, dann
+  `resources/views/vendor/consentlaw/mail/stoerung.blade.php` anpassen (die verfügbaren
+  Variablen stehen im Kopf der Vorlage).
+- **Abschalten:** Der Listener ist eine Übergangslösung bis zu einem eigenen Alert-Package.
+  Übernimmt ein solches Package die Events, den Listener mit `CONSENTLAW_ALERT_LISTENER=false`
+  abschalten – die Events werden weiter ausgelöst. Eigene Listener lassen sich jederzeit
+  zusätzlich registrieren:
+
+```php
+Event::listen(\ITHilbert\ConsentLaw\Events\RechtstextNichtLieferbar::class, function ($event) {
+    // $event->typ, $event->locale, $event->fehler
+});
+```
+
+Bei gecachter Config nach einer Änderung dieser Variablen `php artisan config:clear` ausführen.
+
 ## Konfiguration
 
 | ENV | Standard | Bedeutung |
@@ -179,11 +234,14 @@ ungültig: Dann endet der Befehl mit Exit-Code 1 und dem Hinweis, den Token zu p
 | `CONSENTLAW_CACHE_STORE` | Standard-Store | z.B. `redis` |
 | `CONSENTLAW_TIMEOUT` | `5` | HTTP-Timeout in Sekunden |
 | `CONSENTLAW_FALLBACK_DISK` | `local` | Disk für die Fallback-Dateien |
-| `CONSENTLAW_FALLBACK_WARN_AFTER` | `604800` | Log-Warnung ab diesem Alter (Sekunden) |
+| `CONSENTLAW_FALLBACK_WARN_AFTER` | `604800` | Log-Warnung und Störungsmeldung `NotstandVeraltet` ab diesem Alter (Sekunden) |
 | `CONSENTLAW_FALLBACK_RETRY_AFTER` | `300` | Wartezeit nach einer Störung, in der die API nicht erneut gefragt wird (Sekunden, `0` = aus) |
 | `CONSENTLAW_ROUTES_ENABLED` | `false` | Fertige Seiten registrieren |
 | `APP_TEST` | `false` | Zentraler Hilfen-Schalter: „Neu laden“-Button (wirkt in jeder Umgebung, auch Production) |
 | `CONSENTLAW_LOCALE` | App-Locale | Sprache der Inhalte |
+| `CONSENTLAW_ALERT_MAIL` | – | Empfänger der Störungsmeldung, kommagetrennt; leer = keine Mail |
+| `CONSENTLAW_ALERT_MAILER` | Standard-Mailer | Mailer aus `config/mail.php` für die Störungsmeldung |
+| `CONSENTLAW_ALERT_LISTENER` | `true` | Mitgelieferten Mail-Listener registrieren (`false`, sobald ein Alert-Package die Events übernimmt) |
 
 ## Neu laden per Button
 
@@ -279,7 +337,8 @@ filtert HTML beim Speichern.
 Der Domain-Token steht im URL-Pfad der API (`api/impressum/<token>`) und ist ein
 Geheimnis. Er erscheint **nie** im Klartext in Exception-Meldungen, Log-Einträgen oder
 der Ausgabe von `consentlaw:reload`. Die Maskierung passiert an einer Stelle
-(`ITHilbert\ConsentLaw\Support\TokenMaskierung`, genutzt vom `HttpTransport`) und gilt
+(`ITHilbert\ConsentLaw\Support\TokenMaskierung`, genutzt vom `HttpTransport` und von der
+Störungsmeldung per Mail) und gilt
 auch für Meldungen fremder Bibliotheken (Guzzle/cURL nennen die vollständige URL):
 
 - URLs erscheinen mit maskiertem Token, z. B. `…/api/impressum/abcd…` – höchstens die
@@ -328,6 +387,14 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
   noch die Aktion (ohne Schalter 404 ohne API-Aufruf) und das Partial (Button). Damit ist es
   egal, ob die Routen gecacht sind (`route:cache`). Bei gecachter Config nach einer Änderung an
   `APP_TEST` `php artisan config:clear` ausführen.
+- Neu: Störungsmeldung (siehe „Störungsmeldung per Mail“). Events `RechtstextNichtLieferbar`,
+  `NotstandVeraltet` und `TokenVermutlichUngueltig`; ein mitgelieferter Listener schickt dazu
+  eine Mail (höchstens eine je Fall und 24 h). Neue ENV-Variablen `CONSENTLAW_ALERT_MAIL`,
+  `CONSENTLAW_ALERT_MAILER`, `CONSENTLAW_ALERT_LISTENER`. Ohne `CONSENTLAW_ALERT_MAIL` geht keine
+  Mail raus. Bei veröffentlichter Config den Block `alerts` ergänzen (sonst gelten die
+  Standardwerte); bei veröffentlichten Views kommt `mail/stoerung.blade.php` neu hinzu.
+- `ContentResolver::resolve()` erwartet zusätzlich `typ` und `locale` (für die Störungsmeldung),
+  der Konstruktor zusätzlich den Event-Dispatcher. Betrifft nur, wer den Resolver direkt nutzt.
 
 ## Upgrade auf 1.2
 

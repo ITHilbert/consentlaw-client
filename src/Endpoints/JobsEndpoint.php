@@ -44,6 +44,8 @@ final readonly class JobsEndpoint
     {
         $abruf = $this->resolver->resolve(
             key: $this->cacheKey(),
+            typ: 'jobs',
+            locale: $this->locale,
             endpoint: "api/jobs/{$this->token}",
             query: ['locale' => $this->locale],
         );

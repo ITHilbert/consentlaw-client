@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace ITHilbert\ConsentLaw\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Events\Dispatcher;
 use ITHilbert\ConsentLaw\ConsentLawClient;
 use ITHilbert\ConsentLaw\Data\Abrufstatus;
+use ITHilbert\ConsentLaw\Events\TokenVermutlichUngueltig;
 
 /**
  * Verwirft Cache und Sperrvermerk und lädt alle Inhalte frisch von der API.
@@ -19,7 +21,8 @@ use ITHilbert\ConsentLaw\Data\Abrufstatus;
  * wegen einer Störung weder von der API noch aus dem Fallback geliefert werden
  * konnte. „Nicht veröffentlicht“ (404, z. B. Kunde ohne AGB) ist nur ein Hinweis –
  * außer, ALLE Typen (Dokumente und Jobs) antworten mit 404: Dann ist fast sicher der
- * Token ungültig, und der Befehl endet mit FAILURE samt Token-Hinweis.
+ * Token ungültig, und der Befehl endet mit FAILURE samt Token-Hinweis und meldet das
+ * Event TokenVermutlichUngueltig. Störungen je Typ meldet der ContentResolver selbst.
  */
 final class ConsentLawReloadCommand extends Command
 {
@@ -27,7 +30,7 @@ final class ConsentLawReloadCommand extends Command
 
     protected $description = 'Verwirft Cache und Sperrvermerk und lädt alle consentLaw-Inhalte frisch; legt den Fallback-Stand an';
 
-    public function handle(ConsentLawClient $client): int
+    public function handle(ConsentLawClient $client, Dispatcher $events): int
     {
         if (! $client->isConfigured()) {
             $this->components->error('Kein CONSENTLAW_TOKEN gesetzt – nichts zu tun.');
@@ -105,6 +108,7 @@ final class ConsentLawReloadCommand extends Command
 
         if ($nichtVeroeffentlicht === $typen) {
             $this->components->error('Alle Inhalte sind „nicht veröffentlicht“ – bitte den Token (CONSENTLAW_TOKEN) prüfen, er ist vermutlich ungültig.');
+            $events->dispatch(new TokenVermutlichUngueltig);
 
             return self::FAILURE;
         }
