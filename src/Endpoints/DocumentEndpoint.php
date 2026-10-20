@@ -39,6 +39,8 @@ final readonly class DocumentEndpoint
     {
         $abruf = $this->resolver->resolve(
             key: $this->cacheKey(),
+            typ: $this->type,
+            locale: $this->locale,
             endpoint: "api/{$this->apiPath}/{$this->token}",
             query: ['locale' => $this->locale],
         );

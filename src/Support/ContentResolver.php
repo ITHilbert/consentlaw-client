@@ -6,10 +6,13 @@ namespace ITHilbert\ConsentLaw\Support;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Log;
 use ITHilbert\ConsentLaw\Contracts\FallbackStore;
 use ITHilbert\ConsentLaw\Contracts\Transport;
 use ITHilbert\ConsentLaw\Data\Abruf;
+use ITHilbert\ConsentLaw\Events\NotstandVeraltet;
+use ITHilbert\ConsentLaw\Events\RechtstextNichtLieferbar;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawException;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawResponseException;
 
@@ -35,6 +38,12 @@ use ITHilbert\ConsentLaw\Exceptions\ConsentLawResponseException;
  * `cache.enabled` – er hängt nicht am Inhalts-Cache. Der 404-Vermerk dagegen
  * ist Teil des Inhalts-Caches: Er gilt nur bei `cache.enabled` und TTL > 0,
  * sonst fragt jeder Abruf die API.
+ *
+ * Störungsmeldung: Scheitert ein tatsächlicher Abruf (Punkt 3, kein 404), meldet der
+ * Resolver das als Event – `RechtstextNichtLieferbar` (kein Fallback bzw. Fallback
+ * abgeschaltet) oder `NotstandVeraltet` (Fallback älter als `warnAfter`). Während der
+ * Sperrzeit wird nicht abgerufen und deshalb auch nichts gemeldet. Dies ist die einzige
+ * Stelle, die diese beiden Fälle erkennt.
  */
 final readonly class ContentResolver
 {
@@ -42,6 +51,7 @@ final readonly class ContentResolver
         private Transport $transport,
         private CacheRepository $cache,
         private FallbackStore $fallback,
+        private Dispatcher $events,
         private bool $cacheEnabled,
         private int $ttl,
         private string $cachePrefix,
@@ -52,9 +62,12 @@ final readonly class ContentResolver
     ) {}
 
     /**
+     * @param  string  $key  Cache-/Fallback-Schlüssel des Inhalts
+     * @param  string  $typ  Inhaltstyp für Störungsmeldungen (z. B. 'impressum', 'jobs')
+     * @param  string|null  $locale  angefragte Sprache für Störungsmeldungen
      * @param  array<string, scalar|null>  $query
      */
-    public function resolve(string $key, string $endpoint, array $query = []): Abruf
+    public function resolve(string $key, string $typ, ?string $locale, string $endpoint, array $query = []): Abruf
     {
         // 1. Frischer Cache-Treffer – ohne HTTP-Request.
         if ($this->cacheEnabled && $this->ttl > 0) {
@@ -71,7 +84,7 @@ final readonly class ContentResolver
 
         // 2. Sperrvermerk nach einer Störung – die API wird nicht erneut gefragt.
         if ($this->retryAfter > 0 && $this->cache->has($this->sperreKey($key))) {
-            return $this->fromFallback($key, null);
+            return $this->fromFallback($key, $typ, $locale, null);
         }
 
         // 3. API abrufen.
@@ -114,7 +127,7 @@ final readonly class ContentResolver
 
             // Alles andere ist eine Störung (Timeout, DNS, 5xx, 429, 401 …):
             // der letzte Stand rettet die Seite.
-            return $this->beiStoerung($key, $e);
+            return $this->beiStoerung($key, $typ, $locale, $e);
         }
     }
 
@@ -126,22 +139,23 @@ final readonly class ContentResolver
         $this->cache->forget($this->sperreKey($key));
     }
 
-    private function beiStoerung(string $key, ConsentLawException $error): Abruf
+    private function beiStoerung(string $key, string $typ, ?string $locale, ConsentLawException $error): Abruf
     {
         if ($this->retryAfter > 0) {
             $this->cache->put($this->sperreKey($key), true, $this->retryAfter);
         }
 
-        return $this->fromFallback($key, $error);
+        return $this->fromFallback($key, $typ, $locale, $error);
     }
 
     /**
      * Liefert den letzten Stand aus dem Fallback.
      *
      * @param  ConsentLawException|null  $error  null = Sperrvermerk aktiv: bewusst ohne
-     *                                           Log, sonst schriebe jeder Seitenaufruf einen Eintrag
+     *                                           Log und ohne Event, sonst schriebe bzw. meldete
+     *                                           jeder Seitenaufruf erneut
      */
-    private function fromFallback(string $key, ?ConsentLawException $error): Abruf
+    private function fromFallback(string $key, string $typ, ?string $locale, ?ConsentLawException $error): Abruf
     {
         if (! $this->fallbackEnabled) {
             if ($error !== null) {
@@ -149,6 +163,8 @@ final readonly class ContentResolver
                     'key' => $key,
                     'error' => $error->getMessage(),
                 ]);
+
+                $this->events->dispatch(new RechtstextNichtLieferbar($typ, $locale, $error->getMessage()));
             }
 
             return Abruf::stoerung();
@@ -162,6 +178,8 @@ final readonly class ContentResolver
                     'key' => $key,
                     'error' => $error->getMessage(),
                 ]);
+
+                $this->events->dispatch(new RechtstextNichtLieferbar($typ, $locale, $error->getMessage()));
             }
 
             return Abruf::stoerung();
@@ -177,6 +195,8 @@ final readonly class ContentResolver
                     'age_hours' => (int) round($age / 3600),
                     'error' => $error->getMessage(),
                 ]);
+
+                $this->events->dispatch(new NotstandVeraltet($typ, $locale, $age, $error->getMessage()));
             } else {
                 Log::info('[consentlaw] API nicht erreichbar, Fallback genutzt.', [
                     'key' => $key,

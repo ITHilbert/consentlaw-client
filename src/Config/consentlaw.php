@@ -111,6 +111,28 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Störungsmeldung per Mail
+    |---------------------------------------------------------------------------
+    | Das Package löst bei Störungen Events aus (ITHilbert\ConsentLaw\Events\…):
+    | RechtstextNichtLieferbar, NotstandVeraltet (Fallback älter als warn_after)
+    | und TokenVermutlichUngueltig (consentlaw:reload, alle Typen 404).
+    |
+    | Ein mitgelieferter Listener schickt dazu eine Mail an 'mail' (eine oder
+    | mehrere Adressen, kommagetrennt; leer = keine Mail) – höchstens eine je
+    | Fall und 24 Stunden. Versand über den Standard-Mailer der App (MAIL_*)
+    | oder den unter 'mailer' genannten Mailer aus config/mail.php.
+    |
+    | Übergangslösung bis zu einem eigenen Alert-Package: Das übernimmt die
+    | Events, dann 'mail_listener' auf false setzen. Die Events bleiben.
+    */
+    'alerts' => [
+        'mail' => env('CONSENTLAW_ALERT_MAIL'),
+        'mailer' => env('CONSENTLAW_ALERT_MAILER'), // null = Standard-Mailer
+        'mail_listener' => env('CONSENTLAW_ALERT_LISTENER', true),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Sprache
     |---------------------------------------------------------------------------
     | null = aktuelle App-Locale verwenden. consentLaw ist mehrsprachig; der
