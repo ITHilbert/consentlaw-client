@@ -10,6 +10,7 @@ use DOMXPath;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
@@ -1562,6 +1563,257 @@ final class NeuLadenButtonTest extends AppTestCase
         [, $antwort] = $this->postNeuLaden('impressum', referer: 'http://localhost/impressum?lang=de');
 
         $this->assertSame('http://localhost/impressum?lang=de', $this->ziel($antwort));
+    }
+
+    // ── AK4a: Rückleitung ohne Referer (verstecktes Feld `zurueck`) ──────────
+
+    /** Rendert unter einer bestimmten Anfrage-URL (Pfad + Query), wie sie der Browser aufruft. */
+    private function rendereUnter(string $uri, string $blade): string
+    {
+        $this->app->instance('request', HttpRequest::create('http://localhost'.$uri, 'GET'));
+        Facade::clearResolvedInstance('request');
+
+        return $this->rendere($blade);
+    }
+
+    /** Liefert das versteckte Feld `zurueck` des Formulars (oder null). */
+    private function zurueckFeld(DOMElement $form): ?DOMElement
+    {
+        $felder = (new DOMXPath($form->ownerDocument))->query('.//input[@type="hidden"][@name="zurueck"]', $form);
+
+        return $felder->length === 0 ? null : $felder->item(0);
+    }
+
+    // AK4a
+    public function test_formular_enthaelt_pfad_und_query_der_aktuellen_anfrage_als_zurueck(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $html = $this->rendereUnter('/impressum?x=1', '<x-consentlaw::impressum />');
+
+        $feld = $this->zurueckFeld($this->assertButtonFuer('impressum', $html));
+        $this->assertNotNull($feld, 'Verstecktes Feld `zurueck` fehlt im Formular.');
+        $this->assertSame('/impressum?x=1', $feld->getAttribute('value'));
+    }
+
+    // AK4a
+    public function test_zurueck_enthaelt_nur_pfad_und_query_ohne_host(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $html = $this->rendereUnter('/rechtliches/datenschutz', '<x-consentlaw::datenschutz />');
+
+        $feld = $this->zurueckFeld($this->assertButtonFuer('datenschutz', $html));
+        $this->assertSame('/rechtliches/datenschutz', $feld?->getAttribute('value'));
+    }
+
+    // AK4a
+    public function test_zurueck_wird_korrekt_maskiert_ausgegeben(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $html = $this->rendereUnter('/impressum?a=1&b="><script>x</script>', '<x-consentlaw::impressum />');
+
+        $this->assertStringNotContainsString('<script>x</script>', $html, 'Die Query darf das Attribut nicht verlassen.');
+        $this->assertNotNull($this->zurueckFeld($this->assertButtonFuer('impressum', $html)), 'Verstecktes Feld `zurueck` fehlt.');
+    }
+
+    // AK4a
+    public function test_jobs_komponente_enthaelt_zurueck(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $this->sessionToken();
+
+        $html = $this->rendereUnter('/karriere?x=1', '<x-consentlaw::jobs />');
+
+        $this->assertSame('/karriere?x=1', $this->zurueckFeld($this->assertButtonFuer('jobs', $html))?->getAttribute('value'));
+    }
+
+    // AK4a
+    public function test_document_komponente_enthaelt_zurueck(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $html = $this->rendereUnter('/agb?x=1', '<x-consentlaw::document type="agb" />');
+
+        $this->assertSame('/agb?x=1', $this->zurueckFeld($this->assertButtonFuer('agb', $html))?->getAttribute('value'));
+    }
+
+    // AK4a
+    #[DataProvider('slotFaelle')]
+    public function test_zurueck_ist_auch_im_slot_fall_im_formular(string $typ, mixed $apiAntwort): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $apiAntwort]);
+        $this->sessionToken();
+
+        $html = $this->rendereUnter('/seite?x=1', "<x-consentlaw::{$typ}>Slot-Inhalt</x-consentlaw::{$typ}>");
+
+        $this->assertSame('/seite?x=1', $this->zurueckFeld($this->assertButtonFuer($typ, $html))?->getAttribute('value'));
+    }
+
+    // AK4a
+    public function test_rueckleitung_ohne_referer_geht_auf_die_gerenderte_seite(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+        $html = $this->rendereUnter('/impressum?x=1', '<x-consentlaw::impressum />');
+        $zurueck = $this->zurueckFeld($this->assertButtonFuer('impressum', $html))?->getAttribute('value');
+        $this->assertNotNull($zurueck, 'Vorbedingung: Das Feld `zurueck` kommt aus dem gerenderten HTML.');
+
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        [$status, $antwort] = $this->postNeuLaden('impressum', eingabe: ['zurueck' => $zurueck], referer: null);
+
+        $this->assertSame(302, $status);
+        $this->assertSame('http://localhost/impressum?x=1', $this->ziel($antwort));
+        $this->assertSame(2, $this->anzahlAufrufe(), 'Es wird trotzdem neu geladen.');
+        $this->assertStringContainsString(self::NEU, $this->rendere('<x-consentlaw::impressum />'));
+    }
+
+    // AK4a
+    public function test_rueckleitung_ohne_referer_funktioniert_auch_fuer_jobs(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $this->sessionToken();
+        $html = $this->rendereUnter('/karriere?x=1', '<x-consentlaw::jobs />');
+        $zurueck = $this->zurueckFeld($this->assertButtonFuer('jobs', $html))?->getAttribute('value');
+        $this->assertNotNull($zurueck);
+
+        [$status, $antwort] = $this->postNeuLaden('jobs', eingabe: ['zurueck' => $zurueck], referer: null);
+
+        $this->assertSame(302, $status);
+        $this->assertSame('http://localhost/karriere?x=1', $this->ziel($antwort));
+    }
+
+    // AK4a
+    public function test_gueltiges_zurueck_hat_vorrang_vor_dem_referer(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [, $antwort] = $this->postNeuLaden('impressum', eingabe: ['zurueck' => '/impressum?x=1'], referer: 'http://localhost/andere-seite');
+
+        $this->assertSame('http://localhost/impressum?x=1', $this->ziel($antwort));
+    }
+
+    // AK4a
+    public function test_rueckleitung_mit_zurueck_gilt_auch_mit_locale(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [$status, $antwort] = $this->postNeuLaden('impressum', eingabe: ['locale' => 'en', 'zurueck' => '/en/impressum'], referer: null);
+
+        $this->assertSame(302, $status);
+        $this->assertSame('http://localhost/en/impressum', $this->ziel($antwort));
+    }
+
+    /** @return array<string, array{mixed}> */
+    public static function ungueltigeZurueck(): array
+    {
+        return [
+            'fremder Host mit Schema' => ['https://evil.example/x'],
+            'eigener Host mit Schema' => ['http://localhost/impressum'],
+            'protokollrelativ' => ['//evil.example/x'],
+            'Backslash' => ['/\\evil.example'],
+            'javascript-Schema' => ['javascript:alert(1)'],
+            'ohne fuehrenden Slash' => ['evil.example/x'],
+            'Zeilenumbruch' => ["/impressum\nLocation: https://evil.example"],
+            'Wagenruecklauf' => ["/impressum\r\nX: 1"],
+            'Tabulator' => ["/impre\tssum"],
+            'Nullbyte' => ["/impressum\0"],
+            'leer' => [''],
+            'Array' => [['/impressum']],
+            'Array mit Schluessel' => [['x' => '/impressum']],
+        ];
+    }
+
+    // AK4a (Randfall: kein offener Redirect)
+    #[DataProvider('ungueltigeZurueck')]
+    public function test_ungueltiges_zurueck_fuehrt_ohne_referer_auf_die_startseite(mixed $zurueck): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [$status, $antwort] = $this->postNeuLaden('impressum', eingabe: ['zurueck' => $zurueck], referer: null);
+
+        $this->assertSame(302, $status, 'Ein ungültiges Feld darf keine Fehlerseite erzeugen.');
+        $ziel = $this->ziel($antwort);
+        $this->assertSame('localhost', parse_url($ziel, PHP_URL_HOST), 'Redirect muss auf der eigenen Domain bleiben, war: '.$ziel);
+        $this->assertContains((string) parse_url($ziel, PHP_URL_PATH), ['', '/'], 'Ohne gültiges Ziel geht es auf `/`, war: '.$ziel);
+        $this->assertStringNotContainsString('evil', $ziel);
+        $this->assertStringNotContainsString('impressum', $ziel);
+    }
+
+    // AK4a (Randfall: kein offener Redirect)
+    #[DataProvider('ungueltigeZurueck')]
+    public function test_ungueltiges_zurueck_faellt_auf_den_eigenen_referer_zurueck(mixed $zurueck): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [$status, $antwort] = $this->postNeuLaden('impressum', eingabe: ['zurueck' => $zurueck], referer: 'http://localhost/seite');
+
+        $this->assertSame(302, $status);
+        $this->assertSame('http://localhost/seite', $this->ziel($antwort));
+    }
+
+    // AK4a (Randfall: kein offener Redirect)
+    #[DataProvider('ungueltigeZurueck')]
+    public function test_ungueltiges_zurueck_wird_nicht_durch_fremden_referer_ersetzt(mixed $zurueck): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [, $antwort] = $this->postNeuLaden('impressum', eingabe: ['zurueck' => $zurueck], referer: 'https://evil.example/phishing');
+
+        $this->assertSame('localhost', parse_url($this->ziel($antwort), PHP_URL_HOST));
+        $this->assertStringNotContainsString('evil', $this->ziel($antwort));
+    }
+
+    // AK4a
+    public function test_ungueltiges_zurueck_verhindert_das_neu_laden_nicht(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        $this->postNeuLaden('impressum', eingabe: ['zurueck' => 'https://evil.example/x'], referer: null);
+
+        $this->assertSame(1, $this->anzahlAufrufe());
+    }
+
+    // AK4a
+    public function test_fehlt_zurueck_gilt_der_eigene_referer(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [, $antwort] = $this->postNeuLaden('impressum', referer: 'http://localhost/impressum?x=2');
+
+        $this->assertSame('http://localhost/impressum?x=2', $this->ziel($antwort));
+    }
+
+    // AK4a
+    public function test_fehlt_zurueck_wird_ein_fremder_referer_verworfen(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [, $antwort] = $this->postNeuLaden('impressum', referer: 'https://evil.example/x');
+
+        $this->assertSame('localhost', parse_url($this->ziel($antwort), PHP_URL_HOST));
+        $this->assertStringNotContainsString('evil', $this->ziel($antwort));
     }
 
     // ── Daten ────────────────────────────────────────────────────────────────
