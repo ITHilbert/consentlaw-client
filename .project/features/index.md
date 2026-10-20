@@ -1,4 +1,5 @@
 ## In Arbeit
+- [jobs-google-for-jobs](jobs-google-for-jobs/plan.md) — JobPosting mit Arbeitgeber und Homeoffice, Schema-Komponente einzeln
 
 ## Geplant
 - Package-Jobs-Seite: Controller übergibt `jobs`, View rendert `<x-consentlaw::jobs>` erneut → doppelter Abruf/doppelte Log-Warnung (Review 2 neu-laden-rueckmeldung)
