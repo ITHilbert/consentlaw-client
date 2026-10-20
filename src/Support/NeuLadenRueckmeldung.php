@@ -89,8 +89,12 @@ final class NeuLadenRueckmeldung
         $stand = $this->formatiere($daten['stand'] ?? null);
 
         return match ($daten['art'] ?? null) {
-            self::ERFOLG => ['text' => __('Neu geladen – Stand: :stand', ['stand' => $stand]), 'ok' => true],
-            self::STOERUNG_MIT_STAND => ['text' => __('Neu laden fehlgeschlagen: consentLaw nicht erreichbar. Angezeigt wird der Stand vom :stand.', ['stand' => $stand]), 'ok' => false],
+            self::ERFOLG => $stand === null
+                ? ['text' => __('Neu geladen.'), 'ok' => true]
+                : ['text' => __('Neu geladen – Stand: :stand', ['stand' => $stand]), 'ok' => true],
+            self::STOERUNG_MIT_STAND => $stand === null
+                ? ['text' => __('Neu laden fehlgeschlagen: consentLaw nicht erreichbar. Angezeigt wird der gespeicherte Stand.'), 'ok' => false]
+                : ['text' => __('Neu laden fehlgeschlagen: consentLaw nicht erreichbar. Angezeigt wird der Stand vom :stand.', ['stand' => $stand]), 'ok' => false],
             self::STOERUNG_OHNE_STAND => ['text' => __('Neu laden fehlgeschlagen: consentLaw nicht erreichbar, kein gespeicherter Stand vorhanden.'), 'ok' => false],
             self::NICHT_VEROEFFENTLICHT => ['text' => __('Neu laden fehlgeschlagen: Inhalt bei consentLaw nicht veröffentlicht oder Token ungültig.'), 'ok' => false],
             self::KEIN_TOKEN => ['text' => __('Neu laden fehlgeschlagen: kein Token konfiguriert (CONSENTLAW_TOKEN).'), 'ok' => false],
@@ -98,14 +102,19 @@ final class NeuLadenRueckmeldung
         };
     }
 
-    private function formatiere(mixed $stand): string
+    /** Der Stand als Text, oder null, wenn er sich nicht als Datum lesen lässt. */
+    private function formatiere(mixed $stand): ?string
     {
         if (! is_string($stand) || $stand === '') {
-            return '';
+            return null;
         }
 
-        return CarbonImmutable::parse($stand)
-            ->setTimezone(config('app.timezone') ?: date_default_timezone_get())
-            ->format('d.m.Y H:i');
+        try {
+            return CarbonImmutable::parse($stand)
+                ->setTimezone(config('app.timezone') ?: date_default_timezone_get())
+                ->format('d.m.Y H:i');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

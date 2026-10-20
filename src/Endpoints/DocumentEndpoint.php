@@ -86,9 +86,7 @@ final readonly class DocumentEndpoint
     /** Verwirft Cache-Eintrag und Sperrvermerk, erzwingt beim nächsten Zugriff einen API-Abruf. */
     public function refresh(): ?Document
     {
-        $this->forget();
-
-        return $this->get();
+        return $this->neuLaden()->inhalt;
     }
 
     /** Verwirft Cache-Eintrag und Sperrvermerk (Fallback-Datei bleibt erhalten). */

@@ -23,7 +23,7 @@
 @include('consentlaw::components.partials.neu-laden', ['typ' => 'jobs', 'locale' => $locale])
 
 @php
-    $jobs = \ITHilbert\ConsentLaw\Support\KomponentenInhalt::jobs($locale, (bool) $includeExpired);
+    $jobs = app(\ITHilbert\ConsentLaw\Support\KomponentenInhalt::class)->jobs($locale, (bool) $includeExpired);
 @endphp
 
 @if($jobs->isNotEmpty())

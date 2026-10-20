@@ -19,7 +19,7 @@
 @include('consentlaw::components.partials.neu-laden', ['typ' => $type, 'locale' => $locale])
 
 @php
-    $document = \ITHilbert\ConsentLaw\Support\KomponentenInhalt::dokument($type, $locale);
+    $document = app(\ITHilbert\ConsentLaw\Support\KomponentenInhalt::class)->dokument($type, $locale);
 @endphp
 
 @if($document && ! $document->isEmpty())

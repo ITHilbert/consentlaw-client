@@ -5,26 +5,32 @@ declare(strict_types=1);
 namespace ITHilbert\ConsentLaw\Support;
 
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 use ITHilbert\ConsentLaw\ConsentLawClient;
 use ITHilbert\ConsentLaw\Data\Document;
 use ITHilbert\ConsentLaw\Data\Job;
 use ITHilbert\ConsentLaw\Exceptions\MissingTokenException;
+use Psr\Log\LoggerInterface;
 
 /**
- * Inhalte für die Blade-Komponenten: ohne Token verhalten sie sich wie „kein Inhalt verfügbar“
- * (kein API-Aufruf, Warnung im Log) statt die Seite mit 500 abzubrechen.
+ * Inhalte für Blade-Komponenten und Fertig-Seiten: ohne Token verhalten sie sich wie
+ * „kein Inhalt verfügbar“ (kein API-Aufruf, Warnung im Log) statt mit 500 abzubrechen.
+ * Das Abfangen des fehlenden Tokens steht nur hier.
  *
  * Die PHP-API (`ConsentLawClient::document()/jobs()`) wirft weiterhin.
  */
 final class KomponentenInhalt
 {
-    public static function dokument(string $type, ?string $locale): ?Document
+    public function __construct(
+        private readonly ConsentLawClient $client,
+        private readonly LoggerInterface $logger,
+    ) {}
+
+    public function dokument(string $type, ?string $locale): ?Document
     {
         try {
-            return self::client($locale)->document($type)->get();
+            return $this->client($locale)->document($type)->get();
         } catch (MissingTokenException) {
-            self::warnen();
+            $this->warnen();
 
             return null;
         }
@@ -33,28 +39,26 @@ final class KomponentenInhalt
     /**
      * @return Collection<int, Job>
      */
-    public static function jobs(?string $locale, bool $auchAbgelaufene): Collection
+    public function jobs(?string $locale, bool $auchAbgelaufene): Collection
     {
         try {
-            $endpoint = self::client($locale)->jobs();
+            $endpoint = $this->client($locale)->jobs();
 
             return $auchAbgelaufene ? $endpoint->all() : $endpoint->current();
         } catch (MissingTokenException) {
-            self::warnen();
+            $this->warnen();
 
             return new Collection;
         }
     }
 
-    private static function client(?string $locale): ConsentLawClient
+    private function client(?string $locale): ConsentLawClient
     {
-        $client = app(ConsentLawClient::class);
-
-        return $locale ? $client->locale($locale) : $client;
+        return $locale ? $this->client->locale($locale) : $this->client;
     }
 
-    private static function warnen(): void
+    private function warnen(): void
     {
-        Log::warning('[consentlaw] CONSENTLAW_TOKEN fehlt – Komponente bleibt leer.');
+        $this->logger->warning('[consentlaw] CONSENTLAW_TOKEN fehlt – Komponente bleibt leer.');
     }
 }

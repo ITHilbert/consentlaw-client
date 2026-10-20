@@ -105,9 +105,7 @@ final readonly class JobsEndpoint
      */
     public function refresh(): Collection
     {
-        $this->forget();
-
-        return $this->all();
+        return $this->neuLaden()->inhalt;
     }
 
     /** Verwirft Cache-Eintrag und Sperrvermerk (Fallback-Datei bleibt erhalten). */
