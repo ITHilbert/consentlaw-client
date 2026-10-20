@@ -17,15 +17,17 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
- * Button „Neu laden" (Release 1.2.0) – AK1 bis AK7 aus
- * .project/features/neu-laden-button/spec.md.
+ * Button „Neu laden" – AK4 bis AK6 aus .project/features/neu-laden-button/spec.md
+ * (unverändert), AK1, AK2, AK3, AK7, AK8 und AK9 aus
+ * .project/features/neu-laden-app-test/spec.md.
  *
- * VERTRAG (neu, noch nicht vorhanden – der Coder baut danach):
+ * VERTRAG:
  *
  *  Config
- *   - `consentlaw.refresh_button` (bool), env `CONSENTLAW_REFRESH_BUTTON`, Standard false.
- *   - Freigabe = Schalter an UND `app()->environment('production')` false.
- *     Die Freigabe-Logik liegt an EINER Stelle (Route-Registrierung und Komponenten nutzen sie).
+ *   - `consentlaw.refresh_button` (bool), env `APP_TEST`, Standard false. Ein eigener
+ *     ENV-Schalter des Packages (`CONSENTLAW_REFRESH_BUTTON`) existiert nicht mehr (AK8).
+ *   - Freigabe = Schalter an, in jeder Umgebung (auch `production`, AK2). Die
+ *     Freigabe-Logik liegt an EINER Stelle (Route-Registrierung und Komponenten nutzen sie).
  *
  *  Route (wird beim Booten des Providers registriert, nur bei Freigabe)
  *   - `POST consentlaw/neu-laden/{typ}`, Name `consentlaw.neu-laden`.
@@ -35,15 +37,18 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  *     → 404 (oder 422), ohne API-Aufruf.
  *   - Aktion: ruft `refresh()` des passenden Endpoints (Cache, Sperrzeit und Fallback-Datei
  *     werden umgangen/aktualisiert) und antwortet mit Redirect 302 zurück (`back()`).
+ *   - Ist die Freigabe beim Aufruf nicht (mehr) gegeben → 404 ohne API-Aufruf (AK7).
  *   - Rückleitung nur auf die eigene Seite: Ein Referer auf einen fremden Host oder
  *     Eingabeparameter dürfen den Redirect nicht umlenken (Ziel dann `/` bzw. eigener Host).
  *   - Eine Störung beim Neu-laden führt NICHT zu einer Fehlerseite: ebenfalls 302.
  *   - Nur POST (GET → 405).
  *
  *  Button (Blade-Teilansicht, eingebunden in `document` und `jobs`, auch im Slot-Fall)
+ *   - Steht im HTML VOR dem Inhalt bzw. vor dem Slot (AK3).
  *   - `<form method="post" action="{route('consentlaw.neu-laden', typ)}">` mit CSRF-Feld
  *     (`@csrf`, Eingabefeld `_token`) und einem `<button>` mit dem Text „Neu laden".
  *   - Die Klasse `consentlaw-refresh` trägt das Formular oder ein Element darin.
+ *   - Das Partial bringt einen `<style>`-Block mit Regeln für `.consentlaw-refresh` mit (AK9).
  *
  * Testaufbau: Routen und Limiter werden beim Booten des Providers entschieden. Die Tests
  * bauen die App deshalb mit {@see AppTestCase::appNeuBauen()} neu auf (Umgebung + Config
@@ -86,6 +91,15 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->assertStringNotContainsString('neu-laden', $html);
         $this->assertStringNotContainsString('Neu laden', $html);
         $this->assertSame([], $this->formulare($html));
+    }
+
+    /** Position des Formulars (öffnendes Tag) im HTML. */
+    private function formularPosition(string $html): int
+    {
+        $pos = strpos($html, '<form');
+        $this->assertNotFalse($pos, 'Kein Formular im HTML gefunden.');
+
+        return $pos;
     }
 
     /** Prüft genau ein Formular mit POST, Ziel-URL, CSRF-Feld und Button-Text; liefert es zurück. */
@@ -179,24 +193,100 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->assertFalse($this->app['config']->get('consentlaw.refresh_button'));
     }
 
-    // AK1
-    public function test_umgebungsvariable_false_laesst_den_schalter_aus(): void
+    // AK8
+    public function test_umgebungsvariable_app_test_false_laesst_den_schalter_aus(): void
     {
-        $this->setzeUmgebung('CONSENTLAW_REFRESH_BUTTON', 'false');
+        $this->setzeUmgebung('APP_TEST', 'false');
         $this->appNeuBauen('local');
 
         $this->assertFalse($this->app['config']->get('consentlaw.refresh_button'));
         $this->assertFalse(Route::has('consentlaw.neu-laden'));
     }
 
-    // AK1
-    public function test_umgebungsvariable_true_schaltet_den_button_ein(): void
+    // AK8
+    public function test_umgebungsvariable_app_test_true_schaltet_den_button_ein(): void
     {
-        $this->setzeUmgebung('CONSENTLAW_REFRESH_BUTTON', 'true');
+        $this->setzeUmgebung('APP_TEST', 'true');
         $this->appNeuBauen('local');
 
         $this->assertTrue($this->app['config']->get('consentlaw.refresh_button'));
         $this->assertTrue(Route::has('consentlaw.neu-laden'));
+    }
+
+    // AK8
+    public function test_app_test_true_schaltet_den_button_auch_auf_production_ein(): void
+    {
+        $this->setzeUmgebung('APP_TEST', 'true');
+        $this->appNeuBauen('production');
+
+        $this->assertTrue($this->app['config']->get('consentlaw.refresh_button'));
+        $this->assertTrue(Route::has('consentlaw.neu-laden'));
+    }
+
+    // AK8
+    #[DataProvider('umgebungen')]
+    public function test_alter_package_schalter_ohne_app_test_ist_wirkungslos(string $umgebung): void
+    {
+        $this->setzeUmgebung('CONSENTLAW_REFRESH_BUTTON', 'true');
+        $this->appNeuBauen($umgebung);
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+
+        $this->assertFalse($this->app['config']->get('consentlaw.refresh_button'));
+        $this->assertFalse(Route::has('consentlaw.neu-laden'));
+
+        $html = $this->rendere('<x-consentlaw::impressum />');
+        $this->assertStringContainsString(self::ALT, $html, 'Vorbedingung: Das Dokument wird gerendert.');
+        $this->assertKeinButton($html);
+    }
+
+    // AK8
+    public function test_alter_package_schalter_aendert_nichts_wenn_app_test_aus_ist(): void
+    {
+        $this->setzeUmgebung('CONSENTLAW_REFRESH_BUTTON', 'true');
+        $this->setzeUmgebung('APP_TEST', 'false');
+        $this->appNeuBauen('local');
+
+        $this->assertFalse($this->app['config']->get('consentlaw.refresh_button'));
+        $this->assertFalse(Route::has('consentlaw.neu-laden'));
+    }
+
+    // AK8
+    public function test_die_config_kennt_keinen_eigenen_env_schalter_des_packages_mehr(): void
+    {
+        $quelle = (string) file_get_contents(__DIR__.'/../src/Config/consentlaw.php');
+
+        $this->assertStringNotContainsString('CONSENTLAW_REFRESH_BUTTON', $quelle);
+        $this->assertStringContainsString('APP_TEST', $quelle);
+    }
+
+    // AK1
+    #[DataProvider('umgebungen')]
+    public function test_app_test_false_hat_in_jeder_umgebung_keine_route_und_keinen_button(string $umgebung): void
+    {
+        $this->setzeUmgebung('APP_TEST', 'false');
+        $this->appNeuBauen($umgebung);
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+
+        $this->assertFalse(Route::has('consentlaw.neu-laden'));
+        $this->assertKeinButton($this->rendere('<x-consentlaw::impressum />'));
+
+        [$status] = $this->postNeuLaden('impressum');
+        $this->assertContains($status, [404, 405]);
+        $this->assertSame(1, $this->anzahlAufrufe(), 'Nur der Abruf beim Rendern, kein Neu laden.');
+    }
+
+    // AK1
+    #[DataProvider('umgebungen')]
+    public function test_ohne_app_test_hat_jede_umgebung_keine_route_und_keinen_button(string $umgebung): void
+    {
+        $this->appNeuBauen($umgebung);
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+
+        $this->assertFalse(Route::has('consentlaw.neu-laden'));
+
+        $html = $this->rendere('<x-consentlaw::jobs />');
+        $this->assertStringContainsString('Alt-Stelle', $html);
+        $this->assertKeinButton($html);
     }
 
     // AK1
@@ -254,68 +344,127 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->assertSame(0, $this->anzahlAufrufe());
     }
 
-    // ── AK2: Nie auf Production ──────────────────────────────────────────────
+    // ── AK2: Auch auf Production ─────────────────────────────────────────────
 
     // AK2
     #[DataProvider('dokumentTypen')]
-    public function test_auf_production_zeigt_die_dokument_komponente_trotz_schalter_keinen_button(string $typ): void
+    public function test_auf_production_zeigt_die_dokument_komponente_mit_schalter_den_button(string $typ): void
     {
         $this->freigeben('production');
         $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
 
         $html = $this->rendere("<x-consentlaw::document type=\"{$typ}\" />");
 
         $this->assertStringContainsString(self::ALT, $html);
-        $this->assertKeinButton($html);
+        $this->assertButtonFuer($typ, $html);
     }
 
     // AK2
-    public function test_auf_production_zeigt_die_jobs_komponente_trotz_schalter_keinen_button(): void
+    public function test_auf_production_zeigt_die_jobs_komponente_mit_schalter_den_button(): void
     {
         $this->freigeben('production');
         $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $this->sessionToken();
 
         $html = $this->rendere('<x-consentlaw::jobs />');
 
         $this->assertStringContainsString('Alt-Stelle', $html);
-        $this->assertKeinButton($html);
+        $this->assertButtonFuer('jobs', $html);
     }
 
     // AK2
-    public function test_auf_production_ist_auch_der_slot_fall_ohne_button(): void
+    public function test_auf_production_hat_auch_der_slot_fall_den_button(): void
     {
         $this->freigeben('production');
         $this->api(['*' => 404]);
+        $this->sessionToken();
 
-        $this->assertKeinButton($this->rendere('<x-consentlaw::datenschutz>Slot-Inhalt</x-consentlaw::datenschutz>'));
-        $this->assertKeinButton($this->rendere('<x-consentlaw::jobs>Slot-Inhalt</x-consentlaw::jobs>'));
+        $this->assertButtonFuer('datenschutz', $this->rendere('<x-consentlaw::datenschutz>Slot-Inhalt</x-consentlaw::datenschutz>'));
+        $this->assertButtonFuer('jobs', $this->rendere('<x-consentlaw::jobs>Slot-Inhalt</x-consentlaw::jobs>'));
     }
 
     // AK2
-    public function test_auf_production_ist_die_route_trotz_schalter_nicht_registriert(): void
+    public function test_auf_production_ist_die_route_mit_schalter_registriert(): void
+    {
+        $this->freigeben('production');
+
+        $this->assertTrue(Route::has('consentlaw.neu-laden'));
+        $this->assertStringEndsWith('/consentlaw/neu-laden/impressum', route('consentlaw.neu-laden', 'impressum'));
+    }
+
+    // AK2
+    public function test_auf_production_funktioniert_neu_laden_fuer_dokumente(): void
+    {
+        $this->freigeben('production');
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->rendere('<x-consentlaw::impressum />');
+
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        [$status, $antwort] = $this->postNeuLaden('impressum', referer: 'http://localhost/impressum');
+
+        $this->assertSame(302, $status);
+        $this->assertSame('http://localhost/impressum', $this->ziel($antwort));
+        $this->assertSame(2, $this->anzahlAufrufe());
+        $html = $this->rendere('<x-consentlaw::impressum />');
+        $this->assertStringContainsString(self::NEU, $html);
+        $this->assertStringNotContainsString(self::ALT, $html);
+    }
+
+    // AK2
+    public function test_auf_production_funktioniert_neu_laden_fuer_jobs(): void
+    {
+        $this->freigeben('production');
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $this->rendere('<x-consentlaw::jobs />');
+
+        $this->api(['*' => $this->jobsPayload(['title' => 'Neu-Stelle'])]);
+        [$status] = $this->postNeuLaden('jobs');
+
+        $this->assertSame(302, $status);
+        $this->assertSame(2, $this->anzahlAufrufe());
+        $this->assertStringContainsString('Neu-Stelle', $this->rendere('<x-consentlaw::jobs />'));
+    }
+
+    // AK2
+    public function test_auf_production_ist_ueber_app_test_alles_wirksam(): void
+    {
+        $this->setzeUmgebung('APP_TEST', 'true');
+        $this->appNeuBauen('production');
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $this->assertButtonFuer('agb', $this->rendere('<x-consentlaw::agb />'));
+
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        [$status] = $this->postNeuLaden('agb');
+        $this->assertSame(302, $status);
+        $this->assertStringContainsString(self::NEU, $this->rendere('<x-consentlaw::agb />'));
+    }
+
+    // AK2
+    public function test_auf_production_bleibt_der_csrf_schutz_aktiv(): void
     {
         $this->freigeben('production');
         $this->api(['*' => $this->dokumentPayload(self::NEU)]);
 
-        $this->assertFalse(Route::has('consentlaw.neu-laden'));
+        [$status] = $this->postNeuLaden('impressum', mitToken: false);
 
-        [$status] = $this->postNeuLaden('impressum');
-
-        $this->assertContains($status, [404, 405]);
-        $this->assertSame(0, $this->anzahlAufrufe(), 'Auf Production darf nie neu geladen werden.');
+        $this->assertSame(419, $status);
+        $this->assertSame(0, $this->anzahlAufrufe());
     }
 
-    // ── AK3: Button sichtbar ─────────────────────────────────────────────────
+    // ── AK3: Button sichtbar und oben ─────────────────────────────────────────────────
 
     /** @return array<string, array{string}> */
     public static function umgebungen(): array
     {
-        return ['local' => ['local'], 'testing' => ['testing'], 'staging' => ['staging']];
+        return ['local' => ['local'], 'testing' => ['testing'], 'staging' => ['staging'], 'production' => ['production']];
     }
 
     // AK3
     #[DataProvider('umgebungen')]
-    public function test_mit_schalter_ausserhalb_von_production_ist_die_route_registriert(string $umgebung): void
+    public function test_mit_schalter_ist_in_jeder_umgebung_die_route_registriert(string $umgebung): void
     {
         $this->freigeben($umgebung);
 
@@ -403,6 +552,154 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->sessionToken();
 
         $this->assertButtonFuer('jobs', $this->rendere('<x-consentlaw::jobs />'));
+    }
+
+    // AK3
+    #[DataProvider('dokumentTypen')]
+    public function test_button_steht_vor_dem_dokumentinhalt(string $typ): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $html = $this->rendere("<x-consentlaw::{$typ} />");
+
+        $inhalt = strpos($html, self::ALT);
+        $this->assertNotFalse($inhalt, 'Vorbedingung: Der Inhalt wird gerendert.');
+        $this->assertLessThan($inhalt, $this->formularPosition($html), 'Das Formular muss vor dem Inhalt stehen.');
+    }
+
+    // AK3
+    public function test_button_steht_in_der_document_komponente_vor_dem_inhalt(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $html = $this->rendere('<x-consentlaw::document type="datenschutz" />');
+
+        $this->assertLessThan(strpos($html, self::ALT), $this->formularPosition($html));
+    }
+
+    // AK3
+    public function test_button_steht_vor_den_stellenangeboten(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $this->sessionToken();
+
+        $html = $this->rendere('<x-consentlaw::jobs />');
+
+        $inhalt = strpos($html, 'Alt-Stelle');
+        $this->assertNotFalse($inhalt);
+        $this->assertLessThan($inhalt, $this->formularPosition($html), 'Das Formular muss vor den Jobs stehen.');
+    }
+
+    // AK3
+    #[DataProvider('slotFaelle')]
+    public function test_button_steht_im_slot_fall_vor_dem_slot(string $typ, mixed $apiAntwort): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $apiAntwort]);
+        $this->sessionToken();
+
+        $html = $this->rendere("<x-consentlaw::{$typ}>Slot-Inhalt</x-consentlaw::{$typ}>");
+
+        $slot = strpos($html, 'Slot-Inhalt');
+        $this->assertNotFalse($slot, 'Vorbedingung: Der Slot wird gerendert.');
+        $this->assertLessThan($slot, $this->formularPosition($html), 'Das Formular muss vor dem Slot stehen.');
+    }
+
+    // AK3
+    public function test_button_steht_vor_dem_inhalt_auch_auf_production(): void
+    {
+        $this->freigeben('production');
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $html = $this->rendere('<x-consentlaw::impressum />');
+
+        $this->assertLessThan(strpos($html, self::ALT), $this->formularPosition($html));
+    }
+
+    // ── AK9: Eigene Darstellung ──────────────────────────────────────────────
+
+    /** @return string Inhalt des ersten <style>-Blocks mit Regeln für `.consentlaw-refresh` (oder ''). */
+    private function stylesFuerButton(string $html): string
+    {
+        if (preg_match_all('#<style\b[^>]*>(.*?)</style>#si', $html, $treffer) === 0) {
+            return '';
+        }
+
+        foreach ($treffer[1] as $css) {
+            if (str_contains($css, '.consentlaw-refresh')) {
+                return $css;
+            }
+        }
+
+        return '';
+    }
+
+    // AK9
+    #[DataProvider('dokumentTypen')]
+    public function test_dokument_bringt_styles_fuer_den_button_mit(string $typ): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        $html = $this->rendere("<x-consentlaw::{$typ} />");
+
+        $css = $this->stylesFuerButton($html);
+        $this->assertNotSame('', $css, 'Ein <style>-Block mit Regeln für .consentlaw-refresh fehlt.');
+        $this->assertMatchesRegularExpression('/\.consentlaw-refresh[^{]*\{[^}]+:[^}]+\}/', $css, 'Die Regel braucht Deklarationen.');
+        $this->assertButtonFuer($typ, $html);
+    }
+
+    // AK9
+    public function test_jobs_bringen_styles_fuer_den_button_mit(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $this->sessionToken();
+
+        $html = $this->rendere('<x-consentlaw::jobs />');
+
+        $this->assertNotSame('', $this->stylesFuerButton($html), 'Ein <style>-Block mit Regeln für .consentlaw-refresh fehlt.');
+        $this->assertButtonFuer('jobs', $html);
+    }
+
+    // AK9
+    public function test_styles_sind_auch_im_slot_fall_und_auf_production_da(): void
+    {
+        $this->freigeben('production');
+        $this->api(['*' => 404]);
+        $this->sessionToken();
+
+        $this->assertNotSame('', $this->stylesFuerButton($this->rendere('<x-consentlaw::impressum>Slot</x-consentlaw::impressum>')));
+        $this->assertNotSame('', $this->stylesFuerButton($this->rendere('<x-consentlaw::jobs>Slot</x-consentlaw::jobs>')));
+    }
+
+    // AK9
+    public function test_die_klasse_consentlaw_refresh_bleibt_am_formular_oder_darin(): void
+    {
+        $this->freigeben();
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+        $this->sessionToken();
+
+        // formulare() findet nur Formulare, die die Klasse selbst oder in einem Kind tragen.
+        $this->assertCount(1, $this->formulare($this->rendere('<x-consentlaw::impressum />')));
+    }
+
+    // AK9
+    public function test_ohne_schalter_gibt_es_auch_keine_styles(): void
+    {
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+
+        $html = $this->rendere('<x-consentlaw::impressum />');
+
+        $this->assertSame('', $this->stylesFuerButton($html));
+        $this->assertStringNotContainsString('<style', $html);
     }
 
     // ── AK4: Neu laden ───────────────────────────────────────────────────────
@@ -948,20 +1245,18 @@ final class NeuLadenButtonTest extends AppTestCase
     }
 
     // AK7
-    public function test_umstellung_auf_production_zur_laufzeit_liefert_404_ohne_api_aufruf(): void
+    public function test_entzogener_schalter_liefert_auch_auf_production_404_ohne_api_aufruf(): void
     {
-        $this->freigeben();
+        $this->freigeben('production');
         $this->api(['*' => $this->dokumentPayload(self::NEU)]);
         $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Vorbedingung: Die Route ist registriert.');
 
-        $this->app->detectEnvironment(static fn (): string => 'production');
-        $this->assertTrue($this->app->environment('production'), 'Vorbedingung: Umgebung ist production.');
-        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Vorbedingung: Die Route existiert weiterhin.');
+        $this->app['config']->set('consentlaw.refresh_button', false);
 
         [$status] = $this->postNeuLaden('jobs');
 
         $this->assertSame(404, $status);
-        $this->assertSame(0, $this->anzahlAufrufe(), 'Auf Production darf nie neu geladen werden.');
+        $this->assertSame(0, $this->anzahlAufrufe());
     }
 
     // AK7
