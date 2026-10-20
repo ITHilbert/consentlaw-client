@@ -1,4 +1,5 @@
 ## In Arbeit
+- [reload-command](reload-command/plan.md) — `consentlaw:warm` → `consentlaw:reload`
 
 ## Geplant
 
