@@ -23,6 +23,7 @@ Außerdem braucht eine Homepage mit eigenem Markup (z. B. Aufklapp-Menü in it-h
 - API liefert `hiring_organization` als String oder Liste → wie fehlend (AK1).
 - `applicant_countries` enthält `"de"`, `"DEU"`, `""`, `null` → nur `"DE"` bleibt.
 - Leere Job-Liste → `jobs-schema` gibt nichts aus.
+- `applicant_countries` als JSON-Objekt statt Liste → die Werte werden einzeln geprüft wie bei einer Liste (bewusst tolerant, Review 2).
 
 ## Nicht-Ziele
 - Änderungen an consentLaw (eigene Session, Anweisung beim User).

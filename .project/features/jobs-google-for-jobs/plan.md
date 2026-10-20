@@ -12,7 +12,7 @@ Spec: [spec.md](spec.md) · Branch: `feature/jobs-google-for-jobs`
 - [x] T0b TESTS: `test-writer` — AK7 (README-Codeblock gerendert, Markdown + HTML), AK8, AK9, AK2 (URL streng).
 - [x] T4 (AK2, AK7–AK9) [pro] `Job::descriptionHtml()`, Nutzung in Komponente/Schema/README; URL-Prüfung; Kopfkommentar.
 - [x] NACHWEIS 2: 732/732 grün, Tests seit f8954b1 unverändert; README-Codeblock in it-hilbert-Kopie mit echter API gerendert: Markdown-Beschreibungen vollständig, 6/6 JSON-LD gültig, Button da.
-- [ ] REVIEW 2.
+- [x] REVIEW 2: freigegeben (pruefung.md). R2-H1 als Randfall in die Spec (tolerant); R2-H3/R2-H4 → Index „Geplant“.
 
 ## Stand
-NACHWEIS 2 fertig, Review 2 läuft.
+Fertig, in main gemergt und gepusht, kein Release. Wirkt erst, wenn consentLaw die Felder liefert (Anweisung beim User).
