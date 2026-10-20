@@ -11,10 +11,10 @@ Spec: [spec.md](spec.md) · Branch: `feature/stoerungs-meldung`
 ## Aufgaben
 - [x] T0 TESTS: `test-writer` — AK1–AK9, Rot-Nachweis.
 - [x] T1 (AK1–AK9) [senior] Events, Listener, Mail-Vorlage, Sperre, Config, README.
-- [ ] NACHWEIS · REVIEW
+- [x] NACHWEIS · REVIEW freigegeben (Pint in Tests nachgezogen)
 
 ## Stand
-T1 umgesetzt, 583/583 grün (auch mit APP_TEST), Pint grün. Echter Lauf (Kopie it-hilbert.com, Mail ins Log): drei Fälle je eine Mail an zwei Empfänger, Sperre greift, Token nie im Log. Als Nächstes REVIEW.
+Fertig (Review freigegeben), in main gemergt und gepusht, kein Release.
 
 ## Entscheidungen (Moderator)
 - HANDOFF T1: `test_standardwerte_der_alerts_config` war unerfüllbar (`?? 'fehlt'` mit `assertNull`) → Korrektur durch `test-writer`.

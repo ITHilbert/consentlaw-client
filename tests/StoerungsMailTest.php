@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Tests;
 
-use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
 use ITHilbert\ConsentLaw\ConsentLawServiceProvider;
+use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
 
 /**
  * AK4–AK9 der Störungsmeldung – Mail, Sperre, Vorlage, Abschalter, Ausfallsicherheit.

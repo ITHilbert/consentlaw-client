@@ -21,8 +21,8 @@ use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Request as HttpRequest;
-use Illuminate\Mail\MailServiceProvider;
 use Illuminate\Mail\MailManager;
+use Illuminate\Mail\MailServiceProvider;
 use Illuminate\Mail\Transport\ArrayTransport;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Session\Middleware\StartSession;
@@ -38,9 +38,12 @@ use ITHilbert\ConsentLaw\ConsentLawServiceProvider;
 use Monolog\Handler\TestHandler;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Mailer\Envelope;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\SentMessage as SymfonySentMessage;
 use Symfony\Component\Mime\Email;
-use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Mime\RawMessage;
 
 /**
  * Basis für alle Tests, die den echten Ablauf des Packages brauchen.
@@ -215,9 +218,9 @@ abstract class AppTestCase extends TestCase
         // Transport, der beim Senden wirft – simuliert „SMTP nicht erreichbar“.
         $this->app->make(MailManager::class)->extend('kaputt', static fn (): ArrayTransport => new class extends ArrayTransport
         {
-            public function send(\Symfony\Component\Mime\RawMessage $message, ?\Symfony\Component\Mailer\Envelope $envelope = null): ?SymfonySentMessage
+            public function send(RawMessage $message, ?Envelope $envelope = null): ?SymfonySentMessage
             {
-                throw new \Symfony\Component\Mailer\Exception\TransportException('SMTP nicht erreichbar');
+                throw new TransportException('SMTP nicht erreichbar');
             }
         });
 
