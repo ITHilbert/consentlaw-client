@@ -10,6 +10,7 @@ use DOMXPath;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -18,7 +19,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * Button „Neu laden" – AK4 bis AK6 aus .project/features/neu-laden-button/spec.md
- * (unverändert), AK1, AK2, AK3, AK7, AK8 und AK9 aus
+ * (unverändert), AK1, AK2, AK3, AK7, AK8, AK9 und AK10 aus
  * .project/features/neu-laden-app-test/spec.md.
  *
  * VERTRAG:
@@ -27,9 +28,14 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  *   - `consentlaw.refresh_button` (bool), env `APP_TEST`, Standard false. Ein eigener
  *     ENV-Schalter des Packages (`CONSENTLAW_REFRESH_BUTTON`) existiert nicht mehr (AK8).
  *   - Freigabe = Schalter an, in jeder Umgebung (auch `production`, AK2). Die
- *     Freigabe-Logik liegt an EINER Stelle (Route-Registrierung und Komponenten nutzen sie).
+ *     Freigabe-Logik liegt an EINER Stelle (Aktion und Partial/Komponenten nutzen sie).
  *
- *  Route (wird beim Booten des Providers registriert, nur bei Freigabe)
+ *  Route (wird beim Booten des Providers IMMER registriert, unabhängig vom Schalter, AK10)
+ *   - Der Limiter `consentlaw-neu-laden` wird ebenfalls immer definiert. Grund: Eine
+ *     gecachte Route (`route:cache`) trägt `throttle:consentlaw-neu-laden`; fehlte der
+ *     Limiter bei Schalter aus, gäbe es eine MissingRateLimiterException (500).
+ *   - Die Freigabe wird erst in der AKTION und im Partial geprüft: Ohne Schalter kein
+ *     Button, und ein POST antwortet mit 404 ohne API-Aufruf (AK1, AK7, AK10) – nie 405/500.
  *   - `POST consentlaw/neu-laden/{typ}`, Name `consentlaw.neu-laden`.
  *   - Middleware: Gruppe `web` (Session + CSRF) und ein Limiter, 6 Anfragen/Minute je IP
  *     (Test-App kennt Alias `throttle` und benannte Limiter über die RateLimiter-Facade).
@@ -50,7 +56,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  *   - Die Klasse `consentlaw-refresh` trägt das Formular oder ein Element darin.
  *   - Das Partial bringt einen `<style>`-Block mit Regeln für `.consentlaw-refresh` mit (AK9).
  *
- * Testaufbau: Routen und Limiter werden beim Booten des Providers entschieden. Die Tests
+ * Testaufbau: Der Config-Schalter wird beim Booten des Providers gelesen. Die Tests
  * bauen die App deshalb mit {@see AppTestCase::appNeuBauen()} neu auf (Umgebung + Config
  * vor dem Boot). Anfragen laufen echt durch Router und Middleware (`web` mit Session und
  * CSRF) der Test-App; Antworten werden über {@see self::sende()} als Status ausgewertet.
@@ -91,6 +97,17 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->assertStringNotContainsString('neu-laden', $html);
         $this->assertStringNotContainsString('Neu laden', $html);
         $this->assertSame([], $this->formulare($html));
+    }
+
+    /** Ohne Freigabe: POST → 404 (nie 405/419/500) und kein API-Aufruf (AK1, AK7, AK10). */
+    private function assertNeuLadenGesperrt(string $typ = 'impressum'): void
+    {
+        $vorher = $this->anzahlAufrufe();
+
+        [$status] = $this->postNeuLaden($typ);
+
+        $this->assertSame(404, $status, 'Ohne Schalter muss ein POST 404 liefern (nicht 405, 419 oder 500).');
+        $this->assertSame($vorher, $this->anzahlAufrufe(), 'Ohne Schalter darf kein API-Aufruf stattfinden.');
     }
 
     /** Position des Formulars (öffnendes Tag) im HTML. */
@@ -198,9 +215,10 @@ final class NeuLadenButtonTest extends AppTestCase
     {
         $this->setzeUmgebung('APP_TEST', 'false');
         $this->appNeuBauen('local');
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
 
         $this->assertFalse($this->app['config']->get('consentlaw.refresh_button'));
-        $this->assertFalse(Route::has('consentlaw.neu-laden'));
+        $this->assertNeuLadenGesperrt();
     }
 
     // AK8
@@ -232,11 +250,11 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->api(['*' => $this->dokumentPayload(self::ALT)]);
 
         $this->assertFalse($this->app['config']->get('consentlaw.refresh_button'));
-        $this->assertFalse(Route::has('consentlaw.neu-laden'));
 
         $html = $this->rendere('<x-consentlaw::impressum />');
         $this->assertStringContainsString(self::ALT, $html, 'Vorbedingung: Das Dokument wird gerendert.');
         $this->assertKeinButton($html);
+        $this->assertNeuLadenGesperrt();
     }
 
     // AK8
@@ -245,9 +263,10 @@ final class NeuLadenButtonTest extends AppTestCase
         $this->setzeUmgebung('CONSENTLAW_REFRESH_BUTTON', 'true');
         $this->setzeUmgebung('APP_TEST', 'false');
         $this->appNeuBauen('local');
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
 
         $this->assertFalse($this->app['config']->get('consentlaw.refresh_button'));
-        $this->assertFalse(Route::has('consentlaw.neu-laden'));
+        $this->assertNeuLadenGesperrt();
     }
 
     // AK8
@@ -261,32 +280,31 @@ final class NeuLadenButtonTest extends AppTestCase
 
     // AK1
     #[DataProvider('umgebungen')]
-    public function test_app_test_false_hat_in_jeder_umgebung_keine_route_und_keinen_button(string $umgebung): void
+    public function test_app_test_false_hat_in_jeder_umgebung_keinen_button_und_antwortet_404(string $umgebung): void
     {
         $this->setzeUmgebung('APP_TEST', 'false');
         $this->appNeuBauen($umgebung);
         $this->api(['*' => $this->dokumentPayload(self::ALT)]);
 
-        $this->assertFalse(Route::has('consentlaw.neu-laden'));
         $this->assertKeinButton($this->rendere('<x-consentlaw::impressum />'));
+        $this->assertSame(1, $this->anzahlAufrufe(), 'Nur der Abruf beim Rendern.');
 
-        [$status] = $this->postNeuLaden('impressum');
-        $this->assertContains($status, [404, 405]);
-        $this->assertSame(1, $this->anzahlAufrufe(), 'Nur der Abruf beim Rendern, kein Neu laden.');
+        $this->assertNeuLadenGesperrt();
+        $this->assertSame(1, $this->anzahlAufrufe(), 'Kein Neu laden.');
     }
 
     // AK1
     #[DataProvider('umgebungen')]
-    public function test_ohne_app_test_hat_jede_umgebung_keine_route_und_keinen_button(string $umgebung): void
+    public function test_ohne_app_test_hat_jede_umgebung_keinen_button_und_antwortet_404(string $umgebung): void
     {
         $this->appNeuBauen($umgebung);
         $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
 
-        $this->assertFalse(Route::has('consentlaw.neu-laden'));
-
         $html = $this->rendere('<x-consentlaw::jobs />');
         $this->assertStringContainsString('Alt-Stelle', $html);
         $this->assertKeinButton($html);
+
+        $this->assertNeuLadenGesperrt('jobs');
     }
 
     // AK1
@@ -333,14 +351,11 @@ final class NeuLadenButtonTest extends AppTestCase
     }
 
     // AK1
-    public function test_ohne_schalter_ist_die_route_nicht_registriert(): void
+    public function test_ohne_schalter_antwortet_ein_post_mit_404_ohne_api_aufruf(): void
     {
-        $this->assertFalse(Route::has('consentlaw.neu-laden'));
-
         $this->api(['*' => $this->dokumentPayload(self::NEU)]);
-        [$status] = $this->postNeuLaden('impressum');
 
-        $this->assertContains($status, [404, 405]);
+        $this->assertNeuLadenGesperrt();
         $this->assertSame(0, $this->anzahlAufrufe());
     }
 
@@ -1299,6 +1314,154 @@ final class NeuLadenButtonTest extends AppTestCase
 
         $this->assertContains($status, [404, 422]);
         $this->assertSame(0, $this->anzahlAufrufe());
+    }
+
+    // ── AK10: Unabhängig vom Route-Cache ─────────────────────────────────────
+    //
+    // Route und Limiter `consentlaw-neu-laden` werden beim Boot IMMER registriert. Im
+    // Fehlerfall trug die gecachte Route `throttle:consentlaw-neu-laden`, der Provider
+    // definierte den Limiter bei Schalter aus aber nicht → MissingRateLimiterException (500).
+    // Der Route-Cache wird nachgestellt: Die Routen einer App werden wie bei `route:cache`
+    // kompiliert (`getRoutes()->compile()`) und in einer neu gebauten App mit anderem
+    // Schalterstand per `setCompiledRoutes()` an die Stelle der Boot-Routen gesetzt.
+
+    /** @return array<string, mixed> kompilierte Routen einer App, die mit dem Schalterstand gebaut wurde (wie `route:cache`). */
+    private function routeCacheMitSchalter(bool $schalter, string $umgebung = 'local'): array
+    {
+        $this->appNeuBauen($umgebung, ['refresh_button' => $schalter]);
+
+        return $this->app['router']->getRoutes()->compile();
+    }
+
+    /** @param  array<string, mixed>  $cache */
+    private function appMitRouteCache(array $cache, bool $laufzeitSchalter, string $umgebung = 'local'): void
+    {
+        $this->appNeuBauen($umgebung, ['refresh_button' => $laufzeitSchalter]);
+        $this->app['router']->setCompiledRoutes($cache);
+    }
+
+    // AK10
+    #[DataProvider('umgebungen')]
+    public function test_route_und_limiter_sind_auch_bei_schalter_aus_registriert(string $umgebung): void
+    {
+        $this->appNeuBauen($umgebung, ['refresh_button' => false]);
+
+        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Die Route wird immer registriert.');
+        $this->assertNotNull(RateLimiter::limiter('consentlaw-neu-laden'), 'Der Limiter wird immer definiert.');
+    }
+
+    // AK10
+    #[DataProvider('umgebungen')]
+    public function test_route_und_limiter_sind_auch_bei_schalter_an_registriert(string $umgebung): void
+    {
+        $this->appNeuBauen($umgebung, ['refresh_button' => true]);
+
+        $this->assertTrue(Route::has('consentlaw.neu-laden'));
+        $this->assertNotNull(RateLimiter::limiter('consentlaw-neu-laden'));
+    }
+
+    // AK10
+    public function test_standardmaessig_ohne_app_test_sind_route_und_limiter_da(): void
+    {
+        $this->appNeuBauen('production');
+
+        $this->assertTrue(Route::has('consentlaw.neu-laden'));
+        $this->assertNotNull(RateLimiter::limiter('consentlaw-neu-laden'));
+    }
+
+    // AK10
+    #[DataProvider('umgebungen')]
+    public function test_cache_mit_schalter_an_und_laufzeit_aus_liefert_404_statt_500(string $umgebung): void
+    {
+        $cache = $this->routeCacheMitSchalter(true, $umgebung);
+        $this->appMitRouteCache($cache, false, $umgebung);
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Vorbedingung: Die gecachte Route ist vorhanden.');
+        $this->assertNotNull(RateLimiter::limiter('consentlaw-neu-laden'), 'Der Limiter muss auch bei Schalter aus existieren, sonst 500.');
+
+        $this->assertKeinButton($this->rendere('<x-consentlaw::impressum />'));
+        $this->assertNeuLadenGesperrt();
+        $this->assertNeuLadenGesperrt('jobs');
+    }
+
+    // AK10
+    public function test_cache_mit_schalter_aus_und_laufzeit_aus_liefert_404_ohne_api_aufruf(): void
+    {
+        $cache = $this->routeCacheMitSchalter(false);
+        $this->appMitRouteCache($cache, false);
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        $this->assertNeuLadenGesperrt();
+        $this->assertSame(0, $this->anzahlAufrufe());
+    }
+
+    // AK10
+    #[DataProvider('umgebungen')]
+    public function test_cache_mit_schalter_aus_und_laufzeit_an_zeigt_button_und_laedt_neu(string $umgebung): void
+    {
+        $cache = $this->routeCacheMitSchalter(false, $umgebung);
+        $this->appMitRouteCache($cache, true, $umgebung);
+        $this->api(['*' => $this->dokumentPayload(self::ALT)]);
+
+        $this->assertTrue(Route::has('consentlaw.neu-laden'), 'Die Route gehört in jeden Cache, unabhängig vom Schalter.');
+
+        $html = $this->rendere('<x-consentlaw::impressum />');
+        $this->assertStringContainsString(self::ALT, $html);
+        $this->assertButtonFuer('impressum', $html);
+
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+        [$status, $antwort] = $this->postNeuLaden('impressum', referer: 'http://localhost/impressum');
+
+        $this->assertSame(302, $status);
+        $this->assertSame('http://localhost/impressum', $this->ziel($antwort));
+        $this->assertSame(1, $this->anzahlAufrufe(), 'Der Neu-laden-Abruf hat stattgefunden.');
+        $this->assertStringContainsString(self::NEU, $this->rendere('<x-consentlaw::impressum />'));
+    }
+
+    // AK10
+    public function test_cache_mit_schalter_aus_und_laufzeit_an_laedt_auch_die_jobs_neu(): void
+    {
+        $cache = $this->routeCacheMitSchalter(false);
+        $this->appMitRouteCache($cache, true);
+        $this->api(['*' => $this->jobsPayload(['title' => 'Alt-Stelle'])]);
+        $this->rendere('<x-consentlaw::jobs />');
+
+        $this->api(['*' => $this->jobsPayload(['title' => 'Neu-Stelle'])]);
+        [$status] = $this->postNeuLaden('jobs');
+
+        $this->assertSame(302, $status);
+        $this->assertSame(1, $this->anzahlAufrufe());
+        $this->assertStringContainsString('Neu-Stelle', $this->rendere('<x-consentlaw::jobs />'));
+    }
+
+    // AK10
+    public function test_cache_mit_schalter_an_und_laufzeit_an_funktioniert_wie_bisher(): void
+    {
+        $cache = $this->routeCacheMitSchalter(true, 'production');
+        $this->appMitRouteCache($cache, true, 'production');
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        [$status] = $this->postNeuLaden('impressum');
+
+        $this->assertSame(302, $status);
+        $this->assertSame(1, $this->anzahlAufrufe());
+    }
+
+    // AK10
+    public function test_das_limit_gilt_auch_bei_einer_gecachten_route(): void
+    {
+        $cache = $this->routeCacheMitSchalter(false);
+        $this->appMitRouteCache($cache, true);
+        $this->api(['*' => $this->dokumentPayload(self::NEU)]);
+
+        for ($i = 0; $i < 6; $i++) {
+            [$status] = $this->postNeuLaden('impressum');
+            $this->assertSame(302, $status);
+        }
+
+        [$status] = $this->postNeuLaden('impressum');
+        $this->assertSame(429, $status);
     }
 
     // ── Randfälle ────────────────────────────────────────────────────────────
