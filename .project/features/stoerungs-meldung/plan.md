@@ -9,9 +9,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/stoerungs-meldung`
 - Token-Maskierung: vorhandenes `Support/TokenMaskierung.php` nutzen.
 
 ## Aufgaben
-- [ ] T0 TESTS: `test-writer` — AK1–AK9, Rot-Nachweis.
+- [x] T0 TESTS: `test-writer` — AK1–AK9, Rot-Nachweis.
 - [ ] T1 (AK1–AK9) [senior] Events, Listener, Mail-Vorlage, Sperre, Config, README.
 - [ ] NACHWEIS · REVIEW
 
 ## Stand
-Spec freigegeben (2026-10-20). Als Nächstes T0 TESTS.
+Rote Tests committet (583 Tests, 48 rot in StoerungsEventsTest/StoerungsMailTest). Als Nächstes T1 [senior].

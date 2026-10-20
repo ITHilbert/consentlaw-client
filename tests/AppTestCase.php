@@ -21,6 +21,9 @@ use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Request as HttpRequest;
+use Illuminate\Mail\MailServiceProvider;
+use Illuminate\Mail\MailManager;
+use Illuminate\Mail\Transport\ArrayTransport;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Session\SessionServiceProvider;
@@ -35,6 +38,8 @@ use ITHilbert\ConsentLaw\ConsentLawServiceProvider;
 use Monolog\Handler\TestHandler;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Mailer\SentMessage as SymfonySentMessage;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
@@ -128,10 +133,22 @@ abstract class AppTestCase extends TestCase
         $this->app->instance('config', new ConfigRepository([
             'app' => [
                 'name' => 'Test',
+                'url' => 'https://kunde.example',
                 'locale' => 'de',
                 'fallback_locale' => 'de',
                 'key' => 'base64:'.base64_encode(str_repeat('a', 32)),
                 'cipher' => 'AES-256-CBC',
+            ],
+            // Mail: Array-Transporte statt SMTP. `array` = App-Standard, `zweit` = anderer Mailer
+            // (für alerts.mailer), `kaputt` = Transport, der beim Senden wirft (siehe baueApp()).
+            'mail' => [
+                'default' => 'array',
+                'mailers' => [
+                    'array' => ['transport' => 'array'],
+                    'zweit' => ['transport' => 'array'],
+                    'kaputt' => ['transport' => 'kaputt'],
+                ],
+                'from' => ['address' => 'app@kunde.example', 'name' => 'Kunde'],
             ],
             'view' => ['paths' => [$this->basis.'/views'], 'compiled' => $this->basis.'/storage/framework/views'],
             'cache' => [
@@ -193,6 +210,16 @@ abstract class AppTestCase extends TestCase
         $this->app->register(TranslationServiceProvider::class);
         $this->app->register(EncryptionServiceProvider::class);
         $this->app->register(SessionServiceProvider::class);
+        $this->app->register(MailServiceProvider::class);
+
+        // Transport, der beim Senden wirft – simuliert „SMTP nicht erreichbar“.
+        $this->app->make(MailManager::class)->extend('kaputt', static fn (): ArrayTransport => new class extends ArrayTransport
+        {
+            public function send(\Symfony\Component\Mime\RawMessage $message, ?\Symfony\Component\Mailer\Envelope $envelope = null): ?SymfonySentMessage
+            {
+                throw new \Symfony\Component\Mailer\Exception\TransportException('SMTP nicht erreichbar');
+            }
+        });
 
         // Wie in einer echten App: Middleware-Gruppe `web` und Alias `throttle`
         // (in Laravel kommen sie aus dem Kernel bzw. bootstrap/app.php).
@@ -405,6 +432,83 @@ abstract class AppTestCase extends TestCase
         }
 
         return is_object($wert) ? get_object_vars($wert) : $wert;
+    }
+
+    // ── Mail & Events (Störungsmeldung) ──────────────────────────────────────
+
+    /**
+     * Baut die App mit gesetztem `consentlaw.alerts`-Block neu auf (vor dem Provider-Boot,
+     * damit auch ein beim Booten registrierter Listener die Werte sieht).
+     *
+     * @param  array<string, mixed>  $alerts  überschreibt mail, mailer, mail_listener (Rest = Standard)
+     */
+    protected function mitAlerts(array $alerts): void
+    {
+        $this->appNeuBauen('testing', ['alerts' => array_merge(
+            ['mail' => null, 'mailer' => null, 'mail_listener' => true],
+            $alerts,
+        )]);
+    }
+
+    /**
+     * Zeichnet alle Störungs-Events auf (Reihenfolge des Auftretens).
+     *
+     * @return \ArrayObject<int, object>
+     */
+    protected function fangeEvents(): \ArrayObject
+    {
+        $events = new \ArrayObject;
+
+        foreach ([
+            'ITHilbert\\ConsentLaw\\Events\\RechtstextNichtLieferbar',
+            'ITHilbert\\ConsentLaw\\Events\\TokenVermutlichUngueltig',
+            'ITHilbert\\ConsentLaw\\Events\\NotstandVeraltet',
+        ] as $klasse) {
+            $this->app['events']->listen($klasse, static function (object $event) use ($events): void {
+                $events[] = $event;
+            });
+        }
+
+        return $events;
+    }
+
+    /**
+     * Alle über den Mailer $mailer versendeten Mails.
+     *
+     * @return list<SymfonySentMessage>
+     */
+    protected function gesendeteMails(string $mailer = 'array'): array
+    {
+        $transport = $this->app->make(MailManager::class)->mailer($mailer)->getSymfonyTransport();
+
+        return $transport instanceof ArrayTransport ? $transport->messages()->all() : [];
+    }
+
+    /** Anzahl aller Mails über alle Test-Mailer (array + zweit). */
+    protected function anzahlMails(): int
+    {
+        return count($this->gesendeteMails('array')) + count($this->gesendeteMails('zweit'));
+    }
+
+    /** Betreff, HTML- und Text-Teil einer Mail als ein Text. */
+    protected function mailText(SymfonySentMessage $mail): string
+    {
+        $original = $mail->getOriginalMessage();
+
+        if (! $original instanceof Email) {
+            return $mail->toString();
+        }
+
+        return $original->getSubject()."\n".$original->getHtmlBody()."\n".$original->getTextBody();
+    }
+
+    /** @return list<string> Alle Empfänger (To, Cc, Bcc) laut Umschlag. */
+    protected function empfaenger(SymfonySentMessage $mail): array
+    {
+        return array_map(
+            static fn ($adresse): string => $adresse->getAddress(),
+            $mail->getEnvelope()->getRecipients(),
+        );
     }
 
     // ── Zeit ─────────────────────────────────────────────────────────────────
