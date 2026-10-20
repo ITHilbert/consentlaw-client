@@ -7,7 +7,7 @@ In it-hilbert.com (Layout mit `no-referrer`) führt „Neu laden“ auf `/` stat
 
 ## Aufgaben
 - [x] T0 TESTS: `test-writer` — Regressionstest AK4a (POST ohne Referer → Seite), Sicherheitsfälle, Rot-Nachweis.
-- [ ] T1 (AK4a) [pro] Feld `zurueck` im Partial, Prüfung im Controller.
+- [x] T1 (AK4a) [pro] Feld `zurueck` im Partial, Prüfung im Controller.
 - [ ] NACHWEIS (curl ohne Referer, Formular aus gerendertem HTML; Browser durch User)
 
 ## Stand
