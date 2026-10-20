@@ -310,7 +310,8 @@ führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
 - **Ohne Token:** Fehlt `CONSENTLAW_TOKEN`, rendern die Komponenten (`document`, `impressum` …, `jobs`)
   ohne API-Aufruf wie bei „kein Inhalt verfügbar“ (leer bzw. Slot) und schreiben eine Warnung ins Log;
   die Seite antwortet mit 200. Die PHP-API (`ConsentLaw::document()`, `jobs()`) wirft weiterhin
-  `MissingTokenException`.
+  `MissingTokenException`. Die optionalen Package-Seiten verhalten sich ebenso: Dokument-Seite 404
+  (wie fehlender Inhalt), Jobs-Seite 200 mit leerer Liste.
 - **Darstellung:** dezentes Entwicklungswerkzeug (kleiner Button mit gestricheltem Rand); das
   Partial bringt einen eigenen `<style>`-Block mit niedriger Spezifität mit, das Formular trägt
   die Klasse `consentlaw-refresh` und lässt sich im Seiten-CSS überschreiben. Eigenes Markup

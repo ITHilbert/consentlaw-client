@@ -12,9 +12,10 @@ Spec: [spec.md](spec.md) · Branch: `feature/neu-laden-rueckmeldung`
 - [x] NACHWEIS: 665/665 grün, Tests seit Rot-Commit unverändert. Echter Lauf in einer Kopie von it-hilbert.com (Formular aus HTML, Cookies, kein Referer): Erfolg (/impressum, /datenschutz), Störung mit Fallback, ohne Token (Seite 200, Meldung, Log-Warnung), Meldung beim nächsten Aufruf weg. Kein Browser – Sichtprüfung durch User offen. Hinweis: Stand in app.timezone, it-hilbert.com hat UTC.
 - [x] REVIEW 1: freigegeben (pruefung.md). Hinweise: refresh() doppelt, KomponentenInhalt statisch, Seiten-Controller ohne Token 500, unlesbarer Stand → 500. User: AK12, AK13 aufnehmen.
 - [x] T0c TESTS: `test-writer` — AK12, AK13, Rot-Nachweis.
-- [ ] T5 (Randfälle) [pro] `refresh()` delegiert an `neuLaden()`; Token-Abfangen als injizierbare Klasse statt statischem Helfer, genutzt von Komponenten und Seiten-Controller.
-- [ ] T6 (AK12, AK13) [pro] Seiten-Controller ohne Token; unlesbaren Stand abfangen.
-- [ ] NACHWEIS 2, REVIEW 2.
+- [x] T5 (Randfälle) [pro] `refresh()` delegiert an `neuLaden()`; Token-Abfangen als injizierbare Klasse statt statischem Helfer, genutzt von Komponenten und Seiten-Controller.
+- [x] T6 (AK12, AK13) [pro] Seiten-Controller ohne Token; unlesbaren Stand abfangen.
+- [x] NACHWEIS 2: 679/679 grün, Tests seit ca0466d unverändert, Pint grün. Echter Lauf (Kopie it-hilbert.com): Erfolg, ohne Token (200, Meldung, Log-Warnung). README um AK12 ergänzt.
+- [ ] REVIEW 2.
 
 ## Stand
-Rote Tests AK12/AK13 committet (14 rot, Rest grün). T5/T6 bei coder-pro.
+NACHWEIS 2 fertig, Review 2 läuft.
