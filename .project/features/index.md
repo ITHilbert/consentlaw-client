@@ -1,4 +1,5 @@
 ## In Arbeit
+- [stoerungs-meldung](stoerungs-meldung/plan.md) — Meldung per Mail bei Störungen
 
 ## Geplant
 
