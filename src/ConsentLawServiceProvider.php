@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use ITHilbert\ConsentLaw\Benachrichtigung\MeldeStoerungPerMail;
+use ITHilbert\ConsentLaw\Benachrichtigung\MeldeStoerungAnAlerts;
 use ITHilbert\ConsentLaw\Console\ConsentLawFlushCommand;
 use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
 use ITHilbert\ConsentLaw\Contracts\FallbackStore;
@@ -89,7 +89,7 @@ class ConsentLawServiceProvider extends ServiceProvider
 
         $this->registerOptionalRoutes();
         $this->registerNeuLadenRoute();
-        $this->registerStoerungsMail();
+        $this->registerStoerungsMeldung();
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -136,19 +136,13 @@ class ConsentLawServiceProvider extends ServiceProvider
     }
 
     /**
-     * Hängt den mitgelieferten Mail-Listener an die drei Störungs-Events – außer er ist per
-     * `consentlaw.alerts.mail_listener` abgeschaltet (z. B. weil ein Alert-Package die Events
-     * übernimmt). Die Events selbst werden immer ausgelöst.
+     * Hängt den Listener, der die drei Störungs-Events an `ithilbert/alerts` meldet, immer an.
      */
-    private function registerStoerungsMail(): void
+    private function registerStoerungsMeldung(): void
     {
-        if (! (bool) $this->app['config']->get('consentlaw.alerts.mail_listener', true)) {
-            return;
-        }
-
         $this->app->make(Dispatcher::class)->listen(
             [RechtstextNichtLieferbar::class, TokenVermutlichUngueltig::class, NotstandVeraltet::class],
-            MeldeStoerungPerMail::class,
+            MeldeStoerungAnAlerts::class,
         );
     }
 

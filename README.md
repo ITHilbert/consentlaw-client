@@ -6,9 +6,29 @@ beliebiges Laravel-Projekt – mit Cache und ausfallsicherem Fallback.
 
 ## Installation
 
+Störungsmeldungen laufen über das Basis-Package `ithilbert/alerts`. Composer löst
+VCS-Repositories nicht transitiv auf. Deshalb muss das Host-Projekt das Repository
+in seiner `composer.json` selbst eintragen, **bevor** das Package installiert wird:
+
+```json
+"repositories": [
+    {
+        "type": "vcs",
+        "url": "https://github.com/ITHilbert/alerts.git"
+    }
+]
+```
+
+Das Repository ist privat. Composer braucht dafür einen GitHub-Token (in `auth.json`
+oder `COMPOSER_AUTH`). Solange `ithilbert/alerts` kein Release-Tag hat, ist `dev-main`
+nötig. Dann installieren:
+
 ```bash
 composer require ithilbert/consentlaw-client
 ```
+
+`ithilbert/alerts` kommt dadurch als Abhängigkeit mit. Kanäle und Empfänger der
+Störungsmeldungen stellt man in alerts über `ALERTS_*` ein (siehe dessen README).
 
 In der `.env` den Token der Domain eintragen (zu finden in consentLaw unter
 **Domain → Integration & Setup**):
@@ -169,7 +189,7 @@ werden konnte – so scheitern Deploy-Skripte nur bei echten Problemen.
 Antworten **alle** Typen (5 Dokumente und Jobs) mit 404, ist fast sicher der Token
 ungültig: Dann endet der Befehl mit Exit-Code 1 und dem Hinweis, den Token zu prüfen.
 
-## Störungsmeldung per Mail
+## Störungsmeldung über alerts
 
 Fehlende oder veraltete Rechtstexte sind abmahnfähig – ein Log liest niemand. Das Package
 meldet deshalb drei Störungsfälle als **Event** (Namespace `ITHilbert\ConsentLaw\Events`):
@@ -186,43 +206,44 @@ Während der Wartezeit nach einer Störung (`CONSENTLAW_FALLBACK_RETRY_AFTER`) w
 abgerufen und deshalb auch nichts gemeldet. Ein einzelnes 404 („nicht veröffentlicht“,
 z. B. ein Kunde ohne AGB) ist keine Störung. `fehler` enthält den Token nur maskiert.
 
-Ein mitgelieferter Listener schickt zu jedem Event eine Mail:
+Die Meldung übernimmt das Basis-Package `ithilbert/alerts`. Der Listener `MeldeStoerungAnAlerts`
+ruft dafür den Port `AlertReporter` auf, genau einmal je Event. Der Listener ist immer aktiv.
+Eine eigene Mail-Konfiguration gibt es im Package nicht mehr.
 
-```dotenv
-CONSENTLAW_ALERT_MAIL=admin@example.com,technik@example.com
-# optional: anderer Mailer aus config/mail.php (Standard: Mailer der App, MAIL_*)
-CONSENTLAW_ALERT_MAILER=
-```
+| Event | Schlüssel in alerts | Titel der Meldung |
+|---|---|---|
+| `RechtstextNichtLieferbar` | `consentlaw.nicht-lieferbar` | Rechtstext nicht lieferbar |
+| `NotstandVeraltet` | `consentlaw.notstand-veraltet` | Veralteter Notstand |
+| `TokenVermutlichUngueltig` | `consentlaw.token-vermutlich-ungueltig` | Token vermutlich ungültig |
 
-- **Empfänger:** eine oder mehrere Adressen, kommagetrennt. Leer = keine Mail (die Events
-  werden trotzdem ausgelöst).
-- **Absender:** kommt aus der Mail-Konfiguration der App (`MAIL_FROM_ADDRESS`). Ist er nicht
-  gesetzt (z. B. `MAIL_FROM_ADDRESS=null`), scheitert der Versand – das steht dann nur als
-  `[consentlaw] Störungsmeldung per Mail fehlgeschlagen` im Log, und die 24-h-Sperre greift trotzdem.
-- **Inhalt:** Website (`APP_URL`), Fall, Typ (und Sprache), Zeitpunkt, Fehlertext (Token
-  maskiert), beim veralteten Notstand das Alter in Tagen, und was zu tun ist.
-- **Keine Mailflut:** höchstens **eine Mail je Fall und 24 Stunden** – unabhängig von Typ
-  und Anzahl der Seitenaufrufe. Die Sperre liegt im Cache-Store des Packages
-  (`CONSENTLAW_CACHE_STORE`); sie gilt auch, wenn der Versand scheitert. Die Mail nennt den
-  auslösenden Typ; weitere Typen können betroffen sein.
-- **Versand synchron**, ohne Queue – die Meldung hängt nicht an einem Queue-Worker. Schlägt
-  der Versand fehl (z. B. SMTP nicht erreichbar), wird das als `error` geloggt; Seitenaufruf
-  und `consentlaw:reload` verhalten sich wie ohne Mail.
-- **Vorlage überschreiben:** `php artisan vendor:publish --tag=consentlaw-views`, dann
-  `resources/views/vendor/consentlaw/mail/stoerung.blade.php` anpassen (die verfügbaren
-  Variablen stehen im Kopf der Vorlage).
-- **Abschalten:** Der Listener ist eine Übergangslösung bis zu einem eigenen Alert-Package.
-  Übernimmt ein solches Package die Events, den Listener mit `CONSENTLAW_ALERT_LISTENER=false`
-  abschalten – die Events werden weiter ausgelöst. Eigene Listener lassen sich jederzeit
-  zusätzlich registrieren:
+- **Schlüssel:** Je Fall ein fester Schlüssel, unabhängig vom Typ. Die Drosselung von alerts
+  gilt deshalb pro Fall. Weitere Typen mit demselben Fall erzeugen keine eigene Meldung,
+  sondern zählen in der Sammelmeldung.
+- **Inhalt:** Website (`APP_URL`), Typ und, falls gesetzt, Sprache. Bei `NotstandVeraltet`
+  das Alter in Tagen (ab einem Tag; darunter in Stunden). Dazu kommen „Was ist passiert“
+  und „Was ist zu tun“. Der Fehlertext (Token maskiert) steht bei `RechtstextNichtLieferbar`
+  und `NotstandVeraltet`. `TokenVermutlichUngueltig` hat weder Typ, Sprache noch Fehlertext.
+- **Freigabe:** `php artisan alerts:reset consentlaw.nicht-lieferbar` hebt die Sperre dieses
+  Falls auf. Das nächste Auftreten wird sofort gemeldet. `php artisan alerts:reset --all`
+  hebt alle Sperren auf, auch die anderer Packages.
+- **Kanäle, Empfänger, Drosselung:** Stellt man in alerts über `ALERTS_*` ein, z. B.
+  `ALERTS_MAIL_TO`, `ALERTS_MAILER`, `ALERTS_CHANNELS` und `ALERTS_SPERRE_STUNDEN`. Die
+  vollständige Liste steht in der README von `ithilbert/alerts`.
+- **Fallstrick:** Ein Kanal ohne vollständige Konfiguration wird von alerts still übersprungen.
+  Ohne `ALERTS_MAIL_TO` geht also keine Mail raus, und es erscheint keine Fehlermeldung.
+- **Fehlschlag:** Wirft der Port eine Exception, wird das als Warnung geloggt
+  (`[consentlaw] Störungsmeldung an alerts fehlgeschlagen.`, Token maskiert). Seitenaufruf,
+  Fallback und Exit-Code von `consentlaw:reload` bleiben unverändert.
+- **Abschalten:** Meldungen lassen sich in alerts abschalten, z. B. mit `ALERTS_ENABLED=false`.
+  Das wirkt auf alle Meldungen des Hosts. Die Events werden dabei weiter ausgelöst.
+
+Die Events bleiben unverändert und lassen sich zusätzlich abonnieren:
 
 ```php
 Event::listen(\ITHilbert\ConsentLaw\Events\RechtstextNichtLieferbar::class, function ($event) {
     // $event->typ, $event->locale, $event->fehler
 });
 ```
-
-Bei gecachter Config nach einer Änderung dieser Variablen `php artisan config:clear` ausführen.
 
 ## Konfiguration
 
@@ -239,9 +260,9 @@ Bei gecachter Config nach einer Änderung dieser Variablen `php artisan config:c
 | `CONSENTLAW_ROUTES_ENABLED` | `false` | Fertige Seiten registrieren |
 | `APP_TEST` | `false` | Zentraler Hilfen-Schalter: „Neu laden“-Button (wirkt in jeder Umgebung, auch Production) |
 | `CONSENTLAW_LOCALE` | App-Locale | Sprache der Inhalte |
-| `CONSENTLAW_ALERT_MAIL` | – | Empfänger der Störungsmeldung, kommagetrennt; leer = keine Mail |
-| `CONSENTLAW_ALERT_MAILER` | Standard-Mailer | Mailer aus `config/mail.php` für die Störungsmeldung |
-| `CONSENTLAW_ALERT_LISTENER` | `true` | Mitgelieferten Mail-Listener registrieren (`false`, sobald ein Alert-Package die Events übernimmt) |
+
+Kanäle, Empfänger und Drosselung der Störungsmeldungen stehen in den `ALERTS_*`-Variablen
+von `ithilbert/alerts`.
 
 ## Neu laden per Button
 
@@ -342,8 +363,7 @@ Der Domain-Token steht im URL-Pfad der API (`api/impressum/<token>`) und ist ein
 Geheimnis. Er erscheint **nie** im Klartext in Exception-Meldungen, Log-Einträgen oder
 der Ausgabe von `consentlaw:reload`. Die Maskierung passiert an einer Stelle
 (`ITHilbert\ConsentLaw\Support\TokenMaskierung`, genutzt vom `HttpTransport` und von der
-Störungsmeldung per Mail) und gilt
-auch für Meldungen fremder Bibliotheken (Guzzle/cURL nennen die vollständige URL):
+Störungsmeldung an alerts) und gilt auch für Meldungen fremder Bibliotheken (Guzzle/cURL nennen die vollständige URL):
 
 - URLs erscheinen mit maskiertem Token, z. B. `…/api/impressum/abcd…` – höchstens die
   ersten 4 Zeichen bleiben sichtbar.
@@ -394,7 +414,7 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
   noch die Aktion (ohne Schalter 404 ohne API-Aufruf) und das Partial (Button). Damit ist es
   egal, ob die Routen gecacht sind (`route:cache`). Bei gecachter Config nach einer Änderung an
   `APP_TEST` `php artisan config:clear` ausführen.
-- Neu: Störungsmeldung (siehe „Störungsmeldung per Mail“). Events `RechtstextNichtLieferbar`,
+- Neu: Störungsmeldung (siehe „Störungsmeldung über alerts“). Events `RechtstextNichtLieferbar`,
   `NotstandVeraltet` und `TokenVermutlichUngueltig`; ein mitgelieferter Listener schickt dazu
   eine Mail (höchstens eine je Fall und 24 h). Neue ENV-Variablen `CONSENTLAW_ALERT_MAIL`,
   `CONSENTLAW_ALERT_MAILER`, `CONSENTLAW_ALERT_LISTENER`. Ohne `CONSENTLAW_ALERT_MAIL` geht keine
@@ -402,6 +422,21 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
   Standardwerte); bei veröffentlichten Views kommt `mail/stoerung.blade.php` neu hinzu.
 - `ContentResolver::resolve()` erwartet zusätzlich `typ` und `locale` (für die Störungsmeldung),
   der Konstruktor zusätzlich den Event-Dispatcher. Betrifft nur, wer den Resolver direkt nutzt.
+- **Breaking:** Die Störungsmeldung läuft über das Basis-Package `ithilbert/alerts` (Port
+  `AlertReporter`). Die eigene Mail-Infrastruktur des Packages entfällt. Umstellung:
+  - `.env`: `CONSENTLAW_ALERT_MAIL` → `ALERTS_MAIL_TO`, `CONSENTLAW_ALERT_MAILER` → `ALERTS_MAILER`.
+    Die Werte bleiben gleich.
+  - `CONSENTLAW_ALERT_LISTENER` entfällt ersatzlos. Der Listener ist immer aktiv. Meldungen
+    lassen sich in alerts abschalten, z. B. mit `ALERTS_ENABLED=false`.
+  - Die Schlüssel der Meldungen lauten `consentlaw.nicht-lieferbar`, `consentlaw.notstand-veraltet`
+    und `consentlaw.token-vermutlich-ungueltig`. Freigabe: `php artisan alerts:reset <schlüssel>`.
+  - Host-`composer.json`: VCS-Repository `https://github.com/ITHilbert/alerts.git` eintragen (privat,
+    GitHub-Token nötig; bis zum Release `dev-main`). Dann `composer update ithilbert/consentlaw-client ithilbert/alerts`.
+  - Bei veröffentlichter Config (`config/consentlaw.php`) den Block `alerts` löschen.
+  - Die veröffentlichte Vorlage `resources/views/vendor/consentlaw/mail/stoerung.blade.php` wird
+    nicht mehr genutzt und kann gelöscht werden.
+  - Eine eigene 24-h-Sperre gibt es nicht mehr. Die Drosselung macht alerts
+    (`ALERTS_SPERRE_STUNDEN`, Standard 24).
 
 ## Upgrade auf 1.2
 

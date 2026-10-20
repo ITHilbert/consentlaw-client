@@ -9,8 +9,8 @@ use ITHilbert\ConsentLaw\Events\RechtstextNichtLieferbar;
 use ITHilbert\ConsentLaw\Events\TokenVermutlichUngueltig;
 
 /**
- * Die drei Störungsfälle aus Sicht der Mail: Klartext, Handlungsempfehlung und
- * Schlüssel für die Sperre (eine Mail je Fall und 24 h – unabhängig vom Typ).
+ * Die drei Störungsfälle: Klartext, Handlungsempfehlung und Schlüssel der Meldung
+ * an alerts (ein fester Schlüssel je Fall, unabhängig vom Typ).
  */
 enum Stoerungsfall: string
 {
@@ -27,7 +27,7 @@ enum Stoerungsfall: string
         };
     }
 
-    /** Kurzer Name des Falls (Betreff, Überschrift). */
+    /** Kurzer Name des Falls (Titel der Meldung). */
     public function bezeichnung(): string
     {
         return match ($this) {
@@ -75,11 +75,5 @@ enum Stoerungsfall: string
                 'Nach der Behebung „php artisan consentlaw:reload“ ausführen, damit wieder der aktuelle Stand ausgeliefert wird.',
             ],
         };
-    }
-
-    /** True, wenn der Fall an einem einzelnen Typ hängt (weitere Typen können betroffen sein). */
-    public function betrifftEinzelnenTyp(): bool
-    {
-        return $this !== self::TokenVermutlichUngueltig;
     }
 }
