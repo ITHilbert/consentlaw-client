@@ -9,7 +9,7 @@ use ITHilbert\ConsentLaw\ConsentLawClient;
 use ITHilbert\ConsentLaw\Data\Abrufstatus;
 
 /**
- * Wärmt Cache und Fallback vor.
+ * Verwirft Cache und Sperrvermerk und lädt alle Inhalte frisch von der API.
  *
  * Sinnvoll direkt nach einem Deploy: storage/ ist dann leer, und der erste
  * Besucher würde sonst auf den API-Abruf warten. Ausserdem liegt danach
@@ -21,11 +21,11 @@ use ITHilbert\ConsentLaw\Data\Abrufstatus;
  * außer, ALLE Typen (Dokumente und Jobs) antworten mit 404: Dann ist fast sicher der
  * Token ungültig, und der Befehl endet mit FAILURE samt Token-Hinweis.
  */
-final class ConsentLawWarmCommand extends Command
+final class ConsentLawReloadCommand extends Command
 {
-    protected $signature = 'consentlaw:warm {--locale= : Sprache, z.B. de oder en}';
+    protected $signature = 'consentlaw:reload {--locale= : Sprache, z.B. de oder en}';
 
-    protected $description = 'Lädt alle consentLaw-Inhalte vor und legt den Fallback-Stand an';
+    protected $description = 'Verwirft Cache und Sperrvermerk und lädt alle consentLaw-Inhalte frisch; legt den Fallback-Stand an';
 
     public function handle(ConsentLawClient $client): int
     {

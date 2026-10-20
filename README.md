@@ -133,7 +133,7 @@ Ein 404 wird für die Dauer von `CONSENTLAW_CACHE_TTL` vermerkt: Ein Kunde ohne 
 nicht bei jedem Seitenaufruf einen HTTP-Aufruf aus. Ein 404 wird außerdem nicht
 wiederholt (`http.retries` gilt nur für Störungen: Verbindungsfehler, 5xx, andere
 Fehlerstatus). Bei `cache.enabled=false` oder TTL `0` wird nicht gecacht.
-`forget()`, `refresh()`, `consentlaw:warm` und `consentlaw:flush` verwerfen den Vermerk.
+`forget()`, `refresh()`, `consentlaw:reload` und `consentlaw:flush` verwerfen den Vermerk.
 
 ### Wartezeit nach einer Störung
 
@@ -144,24 +144,24 @@ abgelaufenen Cache-TTL jeder Seitenaufruf erneut auf den API-Timeout warten, und
 Homepage wäre bei einem Ausfall von consentLaw langsam. Nach Ablauf wird die API wieder
 gefragt. Die Wartezeit gilt je Inhalt, liegt im Cache-Store und ist von
 `CONSENTLAW_CACHE_TTL`/`cache.enabled` unabhängig; `0` schaltet sie ab.
-`consentlaw:warm` und `consentlaw:flush` heben sie auf.
+`consentlaw:reload` und `consentlaw:flush` heben sie auf.
 
 Fallback-Dateien liegen auf der konfigurierten Disk unter `consentlaw/` (beim
 Standard-Disk `local` ist das `storage/app/private/consentlaw/`) und enthalten den
 Token-Hash im Namen – nach einem Token-Wechsel werden keine fremden Inhalte
 wiederverwendet.
 
-### Nach dem Deploy vorwärmen
+### Nach dem Deploy neu laden
 
 Der `storage/`-Ordner ist üblicherweise nicht im Git. Damit direkt nach einem Deploy ein
 Fallback-Stand bereitliegt:
 
 ```bash
-php artisan consentlaw:warm
+php artisan consentlaw:reload
 php artisan consentlaw:flush   # Cache + Fallback verwerfen
 ```
 
-`consentlaw:warm` meldet einen nicht veröffentlichten Typ (404, z. B. ein Kunde ohne
+`consentlaw:reload` meldet einen nicht veröffentlichten Typ (404, z. B. ein Kunde ohne
 AGB) nur als Hinweis und endet mit Exit-Code 0. Exit-Code 1 gibt es nur ohne Token oder
 wenn ein Typ wegen einer **Störung** weder von der API noch aus dem Fallback geliefert
 werden konnte – so scheitern Deploy-Skripte nur bei echten Problemen.
@@ -209,7 +209,7 @@ führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
 - **Standard aus:** Die Route (`POST consentlaw/neu-laden/{typ}`, Name `consentlaw.neu-laden`)
   und das Limit sind immer registriert; ohne den Schalter antwortet die Aktion mit 404, ohne
   die API aufzurufen, und es erscheint kein Button.
-- **Alternative ohne Button:** `php artisan consentlaw:warm`.
+- **Alternative ohne Button:** `php artisan consentlaw:reload`.
 - **CSRF-Hinweis:** Homepages, deren `web`-Gruppe weder `StartSession` noch `VerifyCsrfToken`
   enthält, haben für diese Route keinen CSRF-Schutz. Solange `APP_TEST` an ist, kann dann eine
   fremde Seite das Neu laden auslösen (begrenzt auf 6 Anfragen pro Minute und IP). Den Schalter
@@ -278,7 +278,7 @@ filtert HTML beim Speichern.
 
 Der Domain-Token steht im URL-Pfad der API (`api/impressum/<token>`) und ist ein
 Geheimnis. Er erscheint **nie** im Klartext in Exception-Meldungen, Log-Einträgen oder
-der Ausgabe von `consentlaw:warm`. Die Maskierung passiert an einer Stelle
+der Ausgabe von `consentlaw:reload`. Die Maskierung passiert an einer Stelle
 (`ITHilbert\ConsentLaw\Support\TokenMaskierung`, genutzt vom `HttpTransport`) und gilt
 auch für Meldungen fremder Bibliotheken (Guzzle/cURL nennen die vollständige URL):
 
@@ -312,6 +312,8 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 
 ### Unveröffentlicht
 
+- **Breaking:** `consentlaw:warm` heißt jetzt `consentlaw:reload` (kein Alias). Scheduler-Einträge
+  und Deploy-Skripte umstellen.
 - **Breaking:** Die ENV-Variable `CONSENTLAW_REFRESH_BUTTON` entfällt. Der „Neu laden“-Button
   folgt dem zentralen Hilfen-Schalter `APP_TEST` (Config `refresh_button`). Der Schalter wirkt
   jetzt auch auf Production; die bisherige Sperre für `production` entfällt. Bei veröffentlichter
