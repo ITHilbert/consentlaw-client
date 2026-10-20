@@ -73,9 +73,10 @@ final class NeuLadenRueckmeldungTest extends AppTestCase
      * Schalter an, Test-Seiten registriert, Sitzung (Cookie) angelegt.
      * Der Token ist erkennbar, damit ein Durchsickern auffällt (AK5, Randfall).
      */
-    private function bereit(bool $mitSession = true, string $umgebung = 'local'): void
+    /** @param  array<string, mixed>  $konfig  zusätzliche Config vor dem Boot */
+    private function bereit(bool $mitSession = true, string $umgebung = 'local', array $konfig = []): void
     {
-        $this->appNeuBauen($umgebung, ['refresh_button' => true]);
+        $this->appNeuBauen($umgebung, ['refresh_button' => true] + $konfig);
         $this->konfig('token', self::GEHEIM);
 
         $router = $this->app['router'];
@@ -710,6 +711,99 @@ final class NeuLadenRueckmeldungTest extends AppTestCase
         $this->expectException(\ITHilbert\ConsentLaw\Exceptions\MissingTokenException::class);
 
         $this->client()->document('impressum');
+    }
+
+    // ── AK12: Fertige Package-Seiten ohne Token ──────────────────────────────
+
+    /** Package-Seiten aktiv unter /seiten/<pfad> (Präfix, damit sie die Test-Routen nicht überdecken). */
+    private function mitPackageSeiten(string $umgebung = 'local'): void
+    {
+        $this->bereit(umgebung: $umgebung, konfig: ['routes' => [
+            'enabled' => true,
+            'middleware' => ['web'],
+            'prefix' => 'seiten',
+            'layout' => null,
+            'paths' => ['impressum' => 'impressum', 'jobs' => 'jobs'],
+        ]]);
+        $this->konfig('token', '');
+        $this->apiAlle($this->dokumentPayload('Inhalt'));
+    }
+
+    // AK12
+    #[DataProvider('umgebungen')]
+    public function test_package_dokument_seite_ohne_token_antwortet_404_statt_500(string $umgebung): void
+    {
+        $this->mitPackageSeiten($umgebung);
+
+        [$status] = $this->sende($this->anfrage('http://localhost/seiten/impressum', 'GET'));
+
+        $this->assertSame(404, $status, 'Wie bei fehlendem Inhalt: 404 statt Ausnahme.');
+        $this->assertSame(0, $this->anzahlAufrufe(), 'Kein API-Aufruf.');
+        $this->assertMatchesRegularExpression('/^WARNING .*CONSENTLAW_TOKEN fehlt/m', $this->logText());
+    }
+
+    // AK12
+    #[DataProvider('umgebungen')]
+    public function test_package_jobs_seite_ohne_token_antwortet_200_mit_leerer_liste(string $umgebung): void
+    {
+        $this->mitPackageSeiten($umgebung);
+
+        $html = $this->seite('/seiten/jobs'); // prüft 200
+
+        $this->assertStringNotContainsString('Inhalt', $html);
+        $this->assertSame(0, $this->anzahlAufrufe(), 'Kein API-Aufruf.');
+        $this->assertMatchesRegularExpression('/^WARNING .*CONSENTLAW_TOKEN fehlt/m', $this->logText());
+    }
+
+    // ── AK13: Unlesbarer Stand ───────────────────────────────────────────────
+
+    /**
+     * Legt eine Meldung so in die Session, wie ein älteres Package-Format sie hinterlassen könnte.
+     * Der Schlüssel ist die öffentliche Konstante des Packages; die `art`-Kennungen stehen als Literale
+     * da (im Code private Konstanten) – genau sie sind das persistierte Format, das ein Update überdauert.
+     */
+    private function meldungInSession(string $art, mixed $stand): void
+    {
+        $store = $this->app['session']->driver();
+        $store->flash(\ITHilbert\ConsentLaw\Support\NeuLadenRueckmeldung::SESSION_KEY, [
+            'typ' => 'impressum',
+            'locale' => null,
+            'art' => $art,
+            'stand' => $stand,
+        ]);
+        $store->save();
+    }
+
+    /** @return array<string, array{mixed}> */
+    public static function unlesbareStaende(): array
+    {
+        return ['kein Datum' => ['gestern Abend'], 'leer' => [''], 'null' => [null], 'Array' => [['x']], 'Zahl' => [12345]];
+    }
+
+    // AK13
+    #[DataProvider('unlesbareStaende')]
+    public function test_unlesbarer_stand_bei_erfolg_zeigt_die_meldung_ohne_datum(mixed $stand): void
+    {
+        $this->bereit();
+        $this->apiAlle($this->dokumentPayload('Inhalt'));
+        $this->meldungInSession('erfolg', $stand);
+
+        $html = $this->seite('/impressum'); // prüft 200
+
+        $this->assertMeldung($html, 'Neu geladen.', 'ok');
+    }
+
+    // AK13
+    #[DataProvider('unlesbareStaende')]
+    public function test_unlesbarer_stand_bei_stoerung_zeigt_die_meldung_ohne_datum(mixed $stand): void
+    {
+        $this->bereit();
+        $this->apiAlle($this->dokumentPayload('Inhalt'));
+        $this->meldungInSession('stoerung_mit_stand', $stand);
+
+        $html = $this->seite('/impressum');
+
+        $this->assertMeldung($html, 'Neu laden fehlgeschlagen: consentLaw nicht erreichbar. Angezeigt wird der gespeicherte Stand.', 'fehler');
     }
 
     // ── Randfälle ────────────────────────────────────────────────────────────
