@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use ITHilbert\ConsentLaw\Console\ConsentLawFlushCommand;
-use ITHilbert\ConsentLaw\Console\ConsentLawWarmCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
 use ITHilbert\ConsentLaw\Contracts\FallbackStore;
 use ITHilbert\ConsentLaw\Contracts\Transport;
 use ITHilbert\ConsentLaw\Support\ContentResolver;
@@ -87,7 +87,7 @@ class ConsentLawServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ConsentLawFlushCommand::class,
-                ConsentLawWarmCommand::class,
+                ConsentLawReloadCommand::class,
             ]);
 
             $this->publishes([
