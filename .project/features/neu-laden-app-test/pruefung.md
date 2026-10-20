@@ -1,4 +1,60 @@
-# Prüfung: neu-laden-app-test — 2026-10-20
+# Prüfung: neu-laden-app-test — Runde 2 — 2026-10-20
+
+Branch `feature/neu-laden-app-test`, Stand `45e9fd4` (7 Commits ggü. `main`). Neu seit Runde 1: `d08e272` (Spec: AK1 angepasst, AK10 ergänzt), `4483fc9` (Tests: AK10, AK1 als 404, `APP_TEST`-Hygiene) und `45e9fd4` (Fix: Route und Limiter immer registrieren, Partial ohne `Route::has`, README).
+
+Nachweise:
+- Package-Tests: `../../vendor/bin/phpunit` im Package-Ordner, jeweils mit leerem, `APP_TEST=true`, `APP_TEST=false` und `APP_TEST=1 CONSENTLAW_REFRESH_BUTTON=true` in der Shell. Ergebnis jedes Mal: OK (521 Tests, 2121 Assertions).
+- Mutationsprobe in einer Kopie im Scratchpad. Die Kopie nutzt den Autoloader aus `tests/bootstrap.php` und damit ihr eigenes `src/`.
+  - (a) Provider auf Stand `main` zurückgesetzt (Limiter und Route nur bei Freigabe): 14 Failures und 1 Error in den AK10-Tests, u. a. `test_cache_mit_schalter_an_und_laufzeit_aus_liefert_404_statt_500` (alle 4 Umgebungen) und `test_route_und_limiter_sind_auch_bei_schalter_aus_registriert`.
+  - (b) `abort_unless(...aktiv(), 404)` im Controller entfernt: 29 Failures.
+  - (c) Freigabe-Bedingung im Partial durch `@if(true)` ersetzt: 25 Failures.
+  - Mit unverändertem Code ist die Kopie grün (521/521). Die Tests erkennen den Fehler aus Runde 1 also tatsächlich.
+- Echter Lauf: Kopie von it-hilbert.com im Session-Scratchpad. `vendor/ithilbert/consentlaw-client/src` wurde durch den Branch-Stand ersetzt (per `diff -r` als identisch geprüft). Keine veröffentlichte Config, keine veröffentlichten Views. `.env` mit `APP_ENV=production`, `APP_DEBUG=false`, `CACHE_STORE=file` und `CONSENTLAW_REFRESH_BUTTON=true`. Server: `php -S` mit dem Laravel-`server.php`, der `.env` wird bei jeder Anfrage neu gelesen. Die Kopie samt `.env` wurde danach gelöscht.
+- **Hinweis zu den 301:** Der Exception-Handler von it-hilbert.com (`app/Exceptions/Handler.php:83`) wandelt jede `NotFoundHttpException` in `301 → /` um. Das gilt auch für eine beliebige unbekannte URL (`/gibtesnicht-xyz` → 301). Mit einem Kernel-Skript in der Kopie habe ich geprüft, woher die Antwort stammt: Bei Schalter aus enthält `$response->exception` eine `NotFoundHttpException (404)`, und im Trace steht `NeuLadenController`, also das `abort_unless`. Die Route ist dabei gecacht (`routesAreCached() === true`). Das Package liefert somit 404; die 301 entsteht erst in der Homepage.
+
+| AK | Ergebnis | Nachweis |
+|---|---|---|
+| AK1 | bestanden | Tests: `test_app_test_false_hat_in_jeder_umgebung_keinen_button_und_antwortet_404` und `test_ohne_app_test_hat_jede_umgebung_keinen_button_und_antwortet_404` (je 4 Umgebungen, Dokument bzw. Jobs), `test_ohne_schalter_antwortet_ein_post_mit_404_ohne_api_aufruf`. Alle verlangen genau 404 (nicht mehr 404/405) und unveränderte Aufrufzahl. Grün auch mit `APP_TEST=true` in der Shell. Echter Lauf, production ohne Caches: mit `APP_TEST=false` (Szenario A) und ohne `APP_TEST`-Zeile (B) liefert GET /impressum 200 und 0 Formulare `consentlaw-refresh`. POST /consentlaw/neu-laden/impressum → 404 aus dem Controller (in der Homepage 301), Fallback-Datei unverändert, 0 ERROR in `laravel.log`. Tinker-Render in der Kopie mit `APP_TEST=false`: `<x-consentlaw::jobs />`, `<x-consentlaw::document type="datenschutz" />`, `<x-consentlaw::agb locale="en" />` → kein `<form>`, kein `<style>`. |
+| AK2 | bestanden | Tests `test_auf_production_*` sind grün. Echter Lauf mit production und `APP_TEST=true` (C): Button vorhanden, POST → 302 auf `/impressum`, Fallback-Datei neu geschrieben, 0 ERROR. Jetzt auch mit Route-Cache (E, F3), siehe AK10. |
+| AK3 | bestanden | Tests `test_button_steht_vor_*` und `test_*_zeigt_den_button_mit_csrf_und_typ` sind grün. Echter Lauf /impressum: `<style>` an Byte 15476, `<form method="post" action=".../consentlaw/neu-laden/impressum" class="consentlaw-refresh">` an 16049, `consentlaw-document` an 16317. Der Button steht also vor dem Inhalt, und das `_token`-Feld ist vorhanden. Der Wert ist leer, weil it-hilbert.com keine Session hat (bekannter Randfall). Tinker-Render: Bei Jobs, `document type="datenschutz"` und `agb locale="en"` steht das Formular an Position 589 von rund 17 000 Zeichen, also vor dem Inhalt. Die `action` enthält den richtigen Typ, und bei `locale="en"` gibt es das Feld `locale`. Slot-Fälle: nur per Test geprüft. |
+| AK7 | bestanden | Behebt Befund 1 aus Runde 1. Szenario D: `route:cache` mit `APP_TEST=true`, danach `APP_TEST=false` → kein Button. POST impressum/jobs/datenschutz → 404 aus dem Controller (Kernel-Skript: `NotFoundHttpException`, Trace `NeuLadenController`). Kein API-Aufruf (Fallback-mtime unverändert), **0 ERROR** in `laravel.log`, kein 500 mehr. Tests `test_cache_mit_schalter_an_und_laufzeit_aus_liefert_404_statt_500` (4 Umgebungen) sind grün und schlagen mit dem alten Provider fehl (Mutationsprobe a). |
+| AK8 | bestanden | `src/Config/consentlaw.php`: `'refresh_button' => env('APP_TEST', false)`. `grep CONSENTLAW_REFRESH_BUTTON src` → 0 Treffer. Die Tests `test_alter_package_schalter_*` und `test_die_config_kennt_keinen_eigenen_env_schalter_*` sind grün. Im echten Lauf stand `CONSENTLAW_REFRESH_BUTTON=true` in der `.env`. Ohne `APP_TEST` (B) gab es trotzdem keinen Button und ein 404. |
+| AK9 | bestanden (Optik nur per CSS beurteilt) | Gegenüber Runde 1 unverändert, Tests grün. Im echten Lauf steht der `<style>`-Block (`.consentlaw-refresh …`, 0.75rem, gestrichelter grauer Rand) vor dem Formular. Die Klasse `consentlaw-refresh` sitzt am `<form>`. Eine Sichtprüfung im Browser gab es nicht. |
+| AK10 | bestanden | Der Provider registriert Route und `RateLimiter::for('consentlaw-neu-laden')` jetzt ohne Bedingung (`src/ConsentLawServiceProvider.php`). Echter Lauf, jeweils production: <br>– `route:list --path=consentlaw` mit `APP_TEST=false` → Route vorhanden. <br>– D (Cache mit Schalter an, danach aus) → 404 ohne API-Aufruf, 0 ERROR. <br>– E (Cache mit Schalter aus, danach an) → Button oben, POST impressum → 302 und Fallback neu, POST jobs → 302 und `jobs.*.json` neu. <br>– Limit bei gecachter Route: `302 429 429 …` (zusammen mit den POSTs davor 6 in der Minute, die siebte Anfrage → 429). <br>– F1: `optimize` mit an, danach `.env` aus, Config noch gecacht → Button bleibt (dokumentierter Randfall). <br>– F2: nach `config:clear`, Route-Cache bleibt → kein Button, 404. <br>– F3: `.env` an + `config:cache`, Route-Cache aus F1 bleibt → Button, 302, Fallback neu. <br>In keinem Szenario gab es ein 500 oder einen ERROR. Die Tests `test_route_und_limiter_*`, `test_cache_mit_*` und `test_das_limit_gilt_auch_bei_einer_gecachten_route` sind grün und erkennen den alten Code (Mutationsprobe a). Der Route-Cache ist in den Tests über `compile()`/`setCompiledRoutes()` nachgestellt; die echte Cache-Datei habe ich im Lauf oben geprüft. |
+
+## Erledigte Befunde aus Runde 1
+1. **AK7 / 500 bei gecachter Route:** behoben (siehe AK7, AK10).
+2. **Randfall „Config-Cache“ bei `optimize`:** Da die Route jetzt immer registriert ist, reicht `config:clear` bzw. ein neues `config:cache` (F2, F3 belegt). README und Spec stimmen jetzt.
+3. **Testhygiene `APP_TEST`:** behoben. `AppTestCase::umgebungLeeren()` leert `APP_TEST` und stellt `getenv`, `$_ENV` und `$_SERVER` wieder her. Die Suite ist mit `APP_TEST=true` in der Shell grün (in Runde 1 gab es 25 Fehler).
+4. **README „Upgrade auf 1.2“:** wieder auf Stand `main` (im Diff `main...HEAD` nur noch Kontextzeile). Das Neue steht nur unter „Changelog → Unveröffentlicht“.
+
+## Neue Hinweise (blockieren nicht)
+- **Prozess: Testdatei im Fix-Commit geändert.** `45e9fd4` (fix, laut Plan T3 `[pro]`) ändert `tests/NeuLadenButtonTest.php` in zwei AK10-Tests: `$this->sessionToken()` vor dem Rendern, und statt `assertSame(1, anzahlAufrufe())` nun Vorbedingung „1 Aufruf nach dem Rendern“ + „genau ein zusätzlicher Aufruf“. Inhaltlich ist das eine Korrektur: Der rote Test aus `4483fc9` zählte den Abruf beim Rendern nicht mit und hätte auch mit korrektem Code nicht grün werden können. Die neue Fassung ist strenger, nicht schwächer. Laut Rule darf aber nur der test-writer Tests ändern. Die Agent-Hooks greifen in diesem Repo nicht (plan.md), und aus dem Commit geht nicht hervor, wer die Änderung gemacht hat. Der Moderator sollte das klären bzw. vermerken.
+- **Route immer erreichbar:** Folge von AK10 und so gewollt. Ein POST bei Schalter aus durchläuft `web` und den Throttle und endet mit 404. Zusätzlicher Aufwand pro Anfrage: ein Cache-Eintrag für den Limiter. Auf it-hilbert.com zeigt der Exception-Handler dann 301 → `/` statt 404. Das ist Sache der Homepage, nicht des Packages.
+- **Nebenbefund außerhalb des Features (it-hilbert.com):** Der hLogger schreibt Dateien mit falschem Jahr, z. B. `storage/logs/hLogger/2626-10-20.txt` (auch im Original-Projekt `2626-10-15/16/20.txt`). Wahrscheinlich ein Formatfehler im Datumsmuster. Nicht untersucht, an den User melden.
+
+## Sicherheit
+- **Autorisierung:** Bei Schalter aus prüft der Controller die Freigabe bei jedem Aufruf, auch bei gecachter Route (D, F2). Bei Schalter an gibt es bewusst keine Autorisierung. Der fehlende CSRF-Schutz auf it-hilbert.com (`_token` leer, POST ohne Token → 302) ist der dokumentierte Randfall mit README-Hinweis, begrenzt auf 6/min/IP (429 belegt).
+- **Validierung:** unbekannter Typ → 404 (in der Homepage 301). `locale=DE` → 422. GET auf die Route → 405. Tests dazu grün.
+- **Offener Redirect:** Referer `https://evil.example/x` → 302 auf `http://127.0.0.1:8766/` (eigene Domain).
+- **Escaping:** `action` per `{{ route(...) }}`, `locale` per `{{ }}`. Das CSS ist statisch, keine externen Assets.
+- **Mass-Assignment/Mandanten:** nicht betroffen.
+- Kein 500 und kein Log-Rauschen mehr bei gecachter Route (Befund 1 aus Runde 1 ist erledigt).
+
+## Regressionen
+- Volle Suite: `../../vendor/bin/phpunit` → OK (521 Tests, 2121 Assertions), unabhängig von `APP_TEST` in der Shell. `vendor/bin/pint --test src tests` → passed. PHPStan ist im Package-Setup nicht vorhanden und wurde nicht geprüft.
+- AK4–AK6 aus `neu-laden-button`: Tests grün. Echter Lauf: Rückleitung auf die eigene Seite, Fallback-Datei aktualisiert, 405 bei GET, 429 ab der siebten Anfrage pro Minute.
+- Breaking Change (`CONSENTLAW_REFRESH_BUTTON` entfällt, keine Production-Sperre mehr) steht unter „Unveröffentlicht“ im Changelog. Ebenso der neue Punkt „Route und Limiter immer registriert“.
+- Nicht-Ziele eingehalten: kein neuer Command, kein Zeitstempel, keine Änderung in Homepages (it-hilbert.com nur in einer Scratchpad-Kopie angefasst, danach gelöscht).
+
+## Fazit: freigegeben
+Alle AKs (AK1–AK3, AK7–AK10) sind durch Tests und den echten Lauf auf einer production-Kopie belegt, auch mit `route:cache`, `config:cache` und `optimize`. Die drei Befunde aus Runde 1 sind behoben. Offen bleibt nur ein Prozesshinweis: Die Testdatei wurde im Fix-Commit geändert (inhaltlich korrekt); der Moderator sollte das vermerken. AK9 ist optisch nur am CSS beurteilt.
+
+---
+
+# Runde 1 (historisch)
+
+## Prüfung: neu-laden-app-test — 2026-10-20
 
 Branch `feature/neu-laden-app-test` (3 Commits ggü. `main`: Spec/Plan, rote Tests, Umsetzung). Der Umsetzungs-Commit `2a2d1af` ändert keine Tests (`git diff 4b4bab2 2a2d1af --stat`: nur `src/`, README, plan.md).
 
