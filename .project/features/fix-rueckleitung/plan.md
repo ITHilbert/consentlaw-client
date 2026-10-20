@@ -8,7 +8,7 @@ In it-hilbert.com (Layout mit `no-referrer`) führt „Neu laden“ auf `/` stat
 ## Aufgaben
 - [x] T0 TESTS: `test-writer` — Regressionstest AK4a (POST ohne Referer → Seite), Sicherheitsfälle, Rot-Nachweis.
 - [x] T1 (AK4a) [pro] Feld `zurueck` im Partial, Prüfung im Controller.
-- [ ] NACHWEIS (curl ohne Referer, Formular aus gerendertem HTML; Browser durch User)
+- [x] NACHWEIS: 646/646 grün; echter Lauf it-hilbert.com (no-referrer): Formular aus HTML, POST ohne Referer → /impressum bzw. /datenschutz?x=1. Browser-Sichtprüfung durch User offen.
 
 ## Stand
-Rote Regressionstests committet (646 Tests, 21 rot). Als Nächstes T1 [pro].
+Fertig, in main gemergt und gepusht, kein Release.
