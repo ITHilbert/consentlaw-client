@@ -267,6 +267,10 @@ führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
 - **Standard aus:** Die Route (`POST consentlaw/neu-laden/{typ}`, Name `consentlaw.neu-laden`)
   und das Limit sind immer registriert; ohne den Schalter antwortet die Aktion mit 404, ohne
   die API aufzurufen, und es erscheint kein Button.
+- **Rückleitung:** Der Button sendet die aktuelle Adresse (Pfad und Query) im versteckten Feld
+  `zurueck` mit; die Rückleitung funktioniert damit auch mit `Referrer-Policy: no-referrer`.
+  Akzeptiert wird nur ein lokaler Pfad; ein ungültiger Wert verhindert das Neu laden nicht,
+  die Rückleitung nutzt dann den Referer des eigenen Hosts bzw. die Startseite.
 - **Alternative ohne Button:** `php artisan consentlaw:reload`.
 - **CSRF-Hinweis:** Homepages, deren `web`-Gruppe weder `StartSession` noch `VerifyCsrfToken`
   enthält, haben für diese Route keinen CSRF-Schutz. Solange `APP_TEST` an ist, kann dann eine
@@ -371,6 +375,9 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 
 ### Unveröffentlicht
 
+- **Fix:** Die Rückleitung des „Neu laden“-Buttons funktioniert auch ohne Referer (z. B.
+  `Referrer-Policy: no-referrer`): Das Formular sendet die aktuelle Adresse im Feld `zurueck`,
+  ausgewertet wird nur ein lokaler Pfad.
 - **Breaking:** `consentlaw:warm` heißt jetzt `consentlaw:reload` (kein Alias). Scheduler-Einträge
   und Deploy-Skripte umstellen.
 - **Breaking:** Die ENV-Variable `CONSENTLAW_REFRESH_BUTTON` entfällt. Der „Neu laden“-Button

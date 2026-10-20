@@ -26,6 +26,7 @@
     </style>
     <form method="post" action="{{ route('consentlaw.neu-laden', $typ) }}" class="consentlaw-refresh">
         @csrf
+        <input type="hidden" name="zurueck" value="{{ request()->getRequestUri() }}">
         @if(! empty($locale))
             <input type="hidden" name="locale" value="{{ $locale }}">
         @endif

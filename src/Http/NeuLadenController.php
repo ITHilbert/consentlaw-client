@@ -66,12 +66,19 @@ final class NeuLadenController
     }
 
     /**
-     * Ziel nur auf dem eigenen Host: Pfad und Query des Referers, sonst die Startseite.
-     * Eingabeparameter werden nie ausgewertet; ein fremder Referer wird verworfen.
+     * Ziel nur auf dem eigenen Host: das Feld „zurueck“ (nur als lokaler Pfad), sonst Pfad und
+     * Query des Referers, sonst die Startseite. Sonst wird keine Eingabe ausgewertet;
+     * ein fremder Referer wird verworfen.
      */
     private function rueckleitung(Request $request): string
     {
         $basis = $request->getSchemeAndHttpHost();
+        $zurueck = $request->input('zurueck');
+
+        if (is_string($zurueck) && $this->istLokalerPfad($zurueck)) {
+            return $basis.$zurueck;
+        }
+
         $referer = parse_url((string) $request->headers->get('referer'));
 
         if (! is_array($referer) || strcasecmp((string) ($referer['host'] ?? ''), $request->getHost()) !== 0) {
@@ -82,5 +89,24 @@ final class NeuLadenController
         $query = isset($referer['query']) ? '?'.$referer['query'] : '';
 
         return $basis.($pfad === '' || $pfad[0] !== '/' ? '/' : '').$pfad.$query;
+    }
+
+    /**
+     * Lokaler Pfad: genau ein führendes „/“ (nicht „//“ oder „/\“), keine Steuerzeichen,
+     * weder Schema noch Host.
+     */
+    private function istLokalerPfad(string $wert): bool
+    {
+        if ($wert === '' || $wert[0] !== '/' || (isset($wert[1]) && ($wert[1] === '/' || $wert[1] === '\\'))) {
+            return false;
+        }
+
+        if (preg_match('/[\x00-\x1F\x7F]/', $wert) === 1) {
+            return false;
+        }
+
+        $teile = parse_url($wert);
+
+        return is_array($teile) && ! isset($teile['scheme']) && ! isset($teile['host']);
     }
 }
