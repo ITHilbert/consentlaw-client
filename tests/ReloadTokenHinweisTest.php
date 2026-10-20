@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Tests;
 
-use ITHilbert\ConsentLaw\Console\ConsentLawWarmCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
 
 /**
- * AK9 – Ein ungültiger Token fällt bei `consentlaw:warm` auf: Antworten ALLE
+ * AK9 – Ein ungültiger Token fällt bei `consentlaw:reload` auf: Antworten ALLE
  * Typen (5 Dokumente + Jobs) mit 404, endet der Befehl mit FAILURE und einem
  * Hinweis, den Token zu prüfen. Einzelne 404 bleiben ein Hinweis (AK7).
  */
-final class WarmTokenHinweisTest extends AppTestCase
+final class ReloadTokenHinweisTest extends AppTestCase
 {
     // AK9
     public function test_wenn_alle_typen_404_liefern_endet_der_befehl_mit_failure(): void
     {
         $this->api(['*' => 404]);
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         $this->assertSame(1, $code, $ausgabe);
     }
@@ -28,7 +28,7 @@ final class WarmTokenHinweisTest extends AppTestCase
     {
         $this->api(['*' => 404]);
 
-        [, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         $this->assertStringContainsString('Token', $ausgabe, "Hinweis auf den Token fehlt.\n{$ausgabe}");
     }
@@ -38,7 +38,7 @@ final class WarmTokenHinweisTest extends AppTestCase
     {
         $this->api(['*' => 404]);
 
-        [, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         foreach (['impressum', 'datenschutz', 'agb', 'jobs'] as $typ) {
             $this->assertMatchesRegularExpression("/{$typ}.*nicht veröffentlicht/u", $ausgabe, "{$typ} fehlt.\n{$ausgabe}");
@@ -50,7 +50,7 @@ final class WarmTokenHinweisTest extends AppTestCase
     {
         $this->api(['/api/agb/' => 404, '/api/jobs/' => $this->jobsPayload(), '*' => $this->dokumentPayload('# Inhalt')]);
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         $this->assertSame(0, $code, $ausgabe);
         $this->assertStringNotContainsString('Token', $ausgabe);
@@ -61,7 +61,7 @@ final class WarmTokenHinweisTest extends AppTestCase
     {
         $this->api(['/api/jobs/' => $this->jobsPayload(), '*' => 404]);
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         $this->assertSame(0, $code, "Jobs sind veröffentlicht – nicht ALLE Typen sind 404.\n{$ausgabe}");
         $this->assertStringNotContainsString('Token', $ausgabe);
@@ -72,7 +72,7 @@ final class WarmTokenHinweisTest extends AppTestCase
     {
         $this->api(['/api/jobs/' => 404, '*' => $this->dokumentPayload('# Inhalt')]);
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         $this->assertSame(0, $code, $ausgabe);
         $this->assertStringNotContainsString('Token', $ausgabe);
@@ -83,7 +83,7 @@ final class WarmTokenHinweisTest extends AppTestCase
     {
         $this->api(['/api/jobs/' => 404, '/api/impressum/' => $this->dokumentPayload('# Impressum'), '*' => 404]);
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         $this->assertSame(0, $code, $ausgabe);
     }
@@ -93,7 +93,7 @@ final class WarmTokenHinweisTest extends AppTestCase
     {
         $this->api(['*' => self::STOERUNG]);
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         $this->assertSame(1, $code, $ausgabe);
         $this->assertStringNotContainsString('Token', $ausgabe, 'Eine Störung ist kein Hinweis auf einen ungültigen Token.');

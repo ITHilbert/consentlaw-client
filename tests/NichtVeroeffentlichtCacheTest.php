@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Tests;
 
-use ITHilbert\ConsentLaw\Console\ConsentLawWarmCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
 use ITHilbert\ConsentLaw\Data\Abrufstatus;
 
 /**
  * AK8 – „Nicht veröffentlicht“ (404) wird gecacht, nicht wiederholt und
- * von forget()/refresh()/consentlaw:warm verworfen.
+ * von forget()/refresh()/consentlaw:reload verworfen.
  *
  * Ohne Cache würde jeder Seitenaufruf eines Kunden ohne z. B. AGB einen
  * HTTP-Aufruf (plus Retry) auslösen.
@@ -267,18 +267,18 @@ final class NichtVeroeffentlichtCacheTest extends AppTestCase
         $this->assertSame(2, $this->anzahlAufrufe());
     }
 
-    // AK8 (Wechselwirkung mit AK7): warm ruft forget() vor dem Abruf – ein gecachter 404 darf es nicht aushebeln.
-    public function test_warm_ignoriert_einen_gecachten_404_und_liefert_den_inzwischen_veroeffentlichten_inhalt(): void
+    // AK8 (Wechselwirkung mit AK7): reload ruft forget() vor dem Abruf – ein gecachter 404 darf es nicht aushebeln.
+    public function test_reload_ignoriert_einen_gecachten_404_und_liefert_den_inzwischen_veroeffentlichten_inhalt(): void
     {
         $this->api(['*' => 404]);
         $this->client()->agb()->get();
         $this->client()->jobs()->all();
 
         $this->api(['/api/jobs/' => $this->jobsPayload(), '*' => $this->dokumentPayload('# Inhalt')]);
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawWarmCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
 
         $this->assertSame(0, $code, $ausgabe);
-        $this->assertDoesNotMatchRegularExpression('/agb.*nicht veröffentlicht/u', $ausgabe, "warm darf den gecachten 404 nicht übernehmen.\n{$ausgabe}");
+        $this->assertDoesNotMatchRegularExpression('/agb.*nicht veröffentlicht/u', $ausgabe, "reload darf den gecachten 404 nicht übernehmen.\n{$ausgabe}");
         $this->assertDoesNotMatchRegularExpression('/jobs.*nicht veröffentlicht/u', $ausgabe, $ausgabe);
         $this->assertMatchesRegularExpression('/agb: \d+ Zeichen/u', $ausgabe);
         $this->assertMatchesRegularExpression('/jobs: 1 Stellenangebote/u', $ausgabe);

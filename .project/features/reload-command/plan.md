@@ -7,7 +7,7 @@ Spec: [spec.md](spec.md) · Branch: `feature/reload-command`
 - Tests mit `warm` im Namen/Aufruf: WarmCommandTest, WarmTokenHinweisTest, TokenSchutzTest, NichtVeroeffentlichtCacheTest → test-writer.
 
 ## Aufgaben
-- [ ] T0 TESTS: `test-writer` — AK1, AK2; Rot-Nachweis.
+- [x] T0 TESTS: `test-writer` — AK1, AK2; Rot-Nachweis.
 - [ ] T1 (AK1–AK3) [pro] Umbenennen, README, Changelog.
 - [ ] NACHWEIS · REVIEW
 
