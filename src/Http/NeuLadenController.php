@@ -27,8 +27,8 @@ final class NeuLadenController
 
     public function __invoke(Request $request, string $typ): RedirectResponse
     {
-        // Auch in der Aktion prüfen: Die Route kann aus einem Route-Cache einer anderen
-        // Umgebung stammen, obwohl die Freigabe hier nicht (mehr) aktiv ist.
+        // Auch in der Aktion prüfen: Die Route kann aus einem Route-Cache stammen,
+        // obwohl die Freigabe hier nicht (mehr) aktiv ist.
         abort_unless($this->freigabe->aktiv(), 404);
 
         $istDokument = array_key_exists($typ, ConsentLawClient::DOCUMENT_TYPES);

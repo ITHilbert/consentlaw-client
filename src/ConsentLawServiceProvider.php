@@ -131,7 +131,7 @@ class ConsentLawServiceProvider extends ServiceProvider
 
     /**
      * Registriert die Route des „Neu laden“-Buttons – nur bei Freigabe
-     * (Schalter an und nicht production, siehe NeuLadenFreigabe).
+     * (Schalter `APP_TEST` an, siehe NeuLadenFreigabe).
      */
     private function registerNeuLadenRoute(): void
     {

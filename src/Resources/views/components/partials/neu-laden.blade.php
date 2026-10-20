@@ -1,10 +1,29 @@
 {{--
-    „Neu laden“-Button (nur Entwicklung/Test). Wird von document und jobs eingebunden.
+    „Neu laden“-Button (Hilfen-Schalter APP_TEST). Wird von document und jobs am Anfang eingebunden.
 
-    Erscheint nur, wenn NeuLadenFreigabe aktiv ist (Schalter an, nicht production).
-    Erwartet $typ (Dokumenttyp oder „jobs“); optional $locale (nur dann wird das Feld „locale“ mitgesendet). Darstellung per Klasse .consentlaw-refresh anpassbar.
+    Erscheint nur, wenn NeuLadenFreigabe aktiv ist (Schalter an, in jeder Umgebung).
+    Erwartet $typ (Dokumenttyp oder „jobs“); optional $locale (nur dann wird das Feld „locale“ mitgesendet).
+    Darstellung: dezentes Entwicklungswerkzeug; die Regeln im <style>-Block haben niedrige Spezifität
+    (eine Klasse) und lassen sich über .consentlaw-refresh im Seiten-CSS überschreiben. Keine externen Assets.
 --}}
 @if(app(\ITHilbert\ConsentLaw\Support\NeuLadenFreigabe::class)->aktiv() && \Illuminate\Support\Facades\Route::has('consentlaw.neu-laden'))
+    <style>
+        .consentlaw-refresh { display: block; margin: 0 0 1rem; padding: 0; }
+        .consentlaw-refresh button {
+            display: inline-block;
+            margin: 0;
+            padding: 0.125rem 0.5rem;
+            border: 1px dashed #9ca3af;
+            border-radius: 0.25rem;
+            background: transparent;
+            color: #6b7280;
+            font: inherit;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            cursor: pointer;
+        }
+        .consentlaw-refresh button:hover { color: #374151; border-color: #6b7280; }
+    </style>
     <form method="post" action="{{ route('consentlaw.neu-laden', $typ) }}" class="consentlaw-refresh">
         @csrf
         @if(! empty($locale))

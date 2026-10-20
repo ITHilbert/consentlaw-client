@@ -20,6 +20,8 @@
     'withSchema' => true,
 ])
 
+@include('consentlaw::components.partials.neu-laden', ['typ' => 'jobs', 'locale' => $locale])
+
 @php
     $client = app(\ITHilbert\ConsentLaw\ConsentLawClient::class);
     $endpoint = ($locale ? $client->locale($locale) : $client)->jobs();
@@ -71,5 +73,3 @@
 @else
     {{ $slot ?? '' }}
 @endif
-
-@include('consentlaw::components.partials.neu-laden', ['typ' => 'jobs', 'locale' => $locale])

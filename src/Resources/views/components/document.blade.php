@@ -16,6 +16,8 @@
     'showStaleNotice' => false,
 ])
 
+@include('consentlaw::components.partials.neu-laden', ['typ' => $type, 'locale' => $locale])
+
 @php
     $client   = app(\ITHilbert\ConsentLaw\ConsentLawClient::class);
     $document = ($locale ? $client->locale($locale) : $client)->document($type)->get();
@@ -38,5 +40,3 @@
     {{-- Kein Inhalt verfügbar: bewusst leer, damit kein kaputtes Layout entsteht. --}}
     {{ $slot ?? '' }}
 @endif
-
-@include('consentlaw::components.partials.neu-laden', ['typ' => $type, 'locale' => $locale])

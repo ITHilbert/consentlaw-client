@@ -99,14 +99,15 @@ return [
 
     /*
     |---------------------------------------------------------------------------
-    | „Neu laden“-Button (nur Entwicklung/Test, standardmässig AUS)
+    | „Neu laden“-Button (zentraler Hilfen-Schalter APP_TEST, standardmässig AUS)
     |---------------------------------------------------------------------------
-    | Zeigt unter den Komponenten einen Button, der den Inhalt sofort frisch von
-    | consentLaw holt (Cache und Sperrzeit werden umgangen). Wirkt NIE in der
-    | Umgebung `production`, auch wenn der Schalter an ist. Die Route ist auf
-    | 6 Anfragen pro Minute und IP begrenzt.
+    | Zeigt über den Komponenten einen Button, der den Inhalt sofort frisch von
+    | consentLaw holt (Cache und Sperrzeit werden umgangen). Der Schalter ist
+    | `APP_TEST` und wirkt in jeder Umgebung, auch auf production. Die Route ist
+    | auf 6 Anfragen pro Minute und IP begrenzt. Nach einer Änderung von APP_TEST
+    | bei gecachter Config `php artisan config:clear` ausführen.
     */
-    'refresh_button' => env('CONSENTLAW_REFRESH_BUTTON', false),
+    'refresh_button' => env('APP_TEST', false),
 
     /*
     |---------------------------------------------------------------------------
