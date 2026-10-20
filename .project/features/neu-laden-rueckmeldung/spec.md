@@ -18,11 +18,14 @@ Alle AKs: Gegeben `APP_TEST=true` und die Homepage hat eine Session (`StartSessi
 - **AK9 — Ohne Session:** Gegeben die Homepage hat keine Session, wenn „Neu laden“ ausgelöst wird, dann funktioniert es wie bisher (Rückleitung, Abruf) ohne Meldung und ohne Fehler.
 - **AK10 — Schalter aus:** Gegeben `APP_TEST` aus, dann erscheint weder Button noch Meldung, auch wenn noch eine Meldung in der Session liegt.
 - **AK11 — Seite ohne Token** *(ergänzt nach T0, User 2026-10-20)*: Gegeben `CONSENTLAW_TOKEN` ist leer, wenn eine Dokument-Komponente (`<x-consentlaw::impressum />` usw., `<x-consentlaw::document />`) oder die Jobs-Komponente gerendert wird, dann antwortet die Seite mit 200 statt 500: Die Komponente verhält sich wie „kein Inhalt verfügbar“ (leer bzw. Slot), ohne API-Aufruf, und es wird eine Warnung ins Laravel-Log geschrieben („CONSENTLAW_TOKEN fehlt“). Mit `APP_TEST=true` erscheint der Button, und nach „Neu laden“ ist die Meldung aus AK5 auf dieser Seite sichtbar. Gilt in jeder Umgebung.
+- **AK12 — Fertige Seiten ohne Token** *(ergänzt nach Review, User 2026-10-20)*: Gegeben `CONSENTLAW_TOKEN` ist leer und die optionalen Package-Seiten sind aktiv (`ConsentLawPageController`), wenn eine Dokument-Seite aufgerufen wird, dann antwortet sie wie bei fehlendem Inhalt (404) statt 500; die Jobs-Seite antwortet mit 200 und leerer Liste. Kein API-Aufruf, Log-Warnung wie AK11.
+- **AK13 — Unlesbarer Stand** *(ergänzt nach Review, User 2026-10-20)*: Gegeben in der Session liegt eine Meldung, deren Stand sich nicht als Datum lesen lässt (z. B. nach einem Package-Update), wenn die Seite gerendert wird, dann antwortet sie mit 200 und die Meldung erscheint ohne Datum: Erfolg → „Neu geladen.“, Störung mit Fallback → „Neu laden fehlgeschlagen: consentLaw nicht erreichbar. Angezeigt wird der gespeicherte Stand.“
 
 ## Randfälle
 - Rate-Limit (mehr als 6 Aufrufe/min) → 429 wie bisher, keine Meldung.
 - Die Meldung nennt keine Exception-Texte, URLs oder Token — nur die festen Texte oben.
-- Der Konsolen-Befehl `consentlaw:reload` und der Button nutzen denselben Ablauf „verwerfen + abrufen“ (eine Stelle, Execution-Veto Doppelaufruf).
+- Der Konsolen-Befehl `consentlaw:reload` und der Button nutzen denselben Ablauf „verwerfen + abrufen“ (eine Stelle, Execution-Veto Doppelaufruf). Auch `refresh()` der Endpoints delegiert dorthin.
+- Das Abfangen des fehlenden Tokens (AK11, AK12) liegt an einer Stelle, die Komponenten und Seiten-Controller gemeinsam nutzen.
 
 ## Nicht-Ziele
 - Keine Meldung per JavaScript/AJAX, kein Neuladen ohne Seitenwechsel.
