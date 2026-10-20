@@ -174,7 +174,8 @@ MD;
         $erwartet = [
             'Resources/views/components/document.blade.php' => 1,
             'Resources/views/pages/document.blade.php' => 1,
-            'Resources/views/components/jobs.blade.php' => 2, // HTML-Beschreibung + JSON-LD
+            'Resources/views/components/jobs.blade.php' => 1, // HTML-Beschreibung
+            'Support/JobPostingSchema.php' => 1, // JSON-LD (Schema-Aufbau an einer Stelle)
         ];
 
         foreach ($erwartet as $datei => $mindestens) {
