@@ -82,7 +82,7 @@ abstract class AppTestCase extends TestCase
     /** @var array<string, mixed> */
     private array $routen = [];
 
-    /** @var array<string, string|false> */
+    /** @var array<string, array{getenv: string|false, env: mixed, server: mixed}> */
     private array $umgebung = [];
 
     protected function setUp(): void
@@ -458,25 +458,50 @@ abstract class AppTestCase extends TestCase
 
     // ── Umgebungsvariablen (CONSENTLAW_*) ────────────────────────────────────
 
-    /** Standardwerte sollen nicht von der Entwickler-Umgebung abhängen. */
+    /** Variablen, die die Tests von der Entwickler-Umgebung entkoppeln (Präfix CONSENTLAW_ sowie APP_TEST). */
+    private static function istTestRelevant(string $name): bool
+    {
+        return str_starts_with($name, 'CONSENTLAW_') || $name === 'APP_TEST';
+    }
+
+    /** Standardwerte sollen nicht von der Entwickler-Umgebung (Shell, .env) abhängen. */
     private function umgebungLeeren(): void
     {
         $namen = array_filter(
-            array_unique([...array_keys(getenv()), ...array_keys($_ENV), ...array_keys($_SERVER)]),
-            static fn (string|int $name): bool => is_string($name) && str_starts_with($name, 'CONSENTLAW_'),
+            array_unique([...array_keys(getenv()), ...array_keys($_ENV), ...array_keys($_SERVER), 'APP_TEST']),
+            static fn (string|int $name): bool => is_string($name) && self::istTestRelevant($name),
         );
 
         foreach ($namen as $name) {
-            $this->umgebung[$name] = getenv($name);
+            $this->merkeUmgebung($name);
             putenv($name);
             unset($_ENV[$name], $_SERVER[$name]);
         }
     }
 
+    /** Merkt den Ursprungszustand (getenv, $_ENV, $_SERVER) einer Variable einmalig. */
+    private function merkeUmgebung(string $name): void
+    {
+        $this->umgebung[$name] ??= [
+            'getenv' => getenv($name),
+            'env' => array_key_exists($name, $_ENV) ? $_ENV[$name] : null,
+            'server' => array_key_exists($name, $_SERVER) ? $_SERVER[$name] : null,
+        ];
+    }
+
     private function umgebungWiederherstellen(): void
     {
-        foreach ($this->umgebung as $name => $wert) {
-            putenv($wert === false ? $name : "{$name}={$wert}");
+        foreach ($this->umgebung as $name => $alt) {
+            putenv($alt['getenv'] === false ? $name : "{$name}={$alt['getenv']}");
+
+            foreach (['env' => &$_ENV, 'server' => &$_SERVER] as $schluessel => &$ziel) {
+                if ($alt[$schluessel] === null) {
+                    unset($ziel[$name]);
+                } else {
+                    $ziel[$name] = $alt[$schluessel];
+                }
+            }
+            unset($ziel);
         }
 
         $this->umgebung = [];
@@ -485,7 +510,7 @@ abstract class AppTestCase extends TestCase
     /** Setzt eine Umgebungsvariable für diesen Test (wird in tearDown entfernt). */
     protected function setzeUmgebung(string $name, string $wert): void
     {
-        $this->umgebung[$name] ??= getenv($name);
+        $this->merkeUmgebung($name);
         putenv("{$name}={$wert}");
     }
 }

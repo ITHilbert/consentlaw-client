@@ -182,46 +182,54 @@ ungültig: Dann endet der Befehl mit Exit-Code 1 und dem Hinweis, den Token zu p
 | `CONSENTLAW_FALLBACK_WARN_AFTER` | `604800` | Log-Warnung ab diesem Alter (Sekunden) |
 | `CONSENTLAW_FALLBACK_RETRY_AFTER` | `300` | Wartezeit nach einer Störung, in der die API nicht erneut gefragt wird (Sekunden, `0` = aus) |
 | `CONSENTLAW_ROUTES_ENABLED` | `false` | Fertige Seiten registrieren |
-| `CONSENTLAW_REFRESH_BUTTON` | `false` | „Neu laden“-Button (nur Entwicklung/Test, nie auf Production) |
+| `APP_TEST` | `false` | Zentraler Hilfen-Schalter: „Neu laden“-Button (wirkt in jeder Umgebung, auch Production) |
 | `CONSENTLAW_LOCALE` | App-Locale | Sprache der Inhalte |
 
-## Neu laden per Button (Entwicklung)
+## Neu laden per Button
 
-Wer Texte in consentLaw ändert, kann sie auf einer Entwicklungs- oder Test-Homepage
-sofort neu laden – ohne SSH und ohne auf den stündlichen Abruf zu warten. Dafür in der
-`.env` der Entwicklungs-/Testumgebung setzen:
+Wer Texte in consentLaw ändert, kann sie auf einer Homepage sofort neu laden – ohne SSH und
+ohne auf den stündlichen Abruf zu warten. Der Schalter ist der zentrale Hilfen-Schalter
+`APP_TEST` in der `.env`; er wirkt in **jeder** Umgebung, auch auf Production:
 
 ```dotenv
-CONSENTLAW_REFRESH_BUTTON=true
+APP_TEST=true
 ```
 
-Danach erscheint unter jeder Dokument-Komponente (`<x-consentlaw::impressum />`,
-`<x-consentlaw::document />` …) und unter `<x-consentlaw::jobs />` ein Button „Neu laden“
-(auch, wenn gerade kein Inhalt verfügbar ist). Ein Klick holt genau diesen Typ frisch von
-consentLaw (Cache und Wartezeit nach einer Störung werden umgangen, Fallback-Datei wird
-aktualisiert) und leitet auf die vorherige Seite zurück. Eine Störung führt nicht zu einer
-Fehlerseite; die Seite zeigt dann den bisherigen Stand.
+Ablauf: `APP_TEST=true` setzen → Texte neu laden → `APP_TEST=false` zurücksetzen. Ist die
+Config gecacht, nach jeder Änderung `php artisan config:clear` ausführen (bzw. danach neu
+`config:cache`).
 
-- **Nie auf Production:** In der Umgebung `production` (`APP_ENV`) gibt es weder Button noch
-  Route – auch nicht mit gesetztem Schalter. Dort gelten `consentlaw:warm` und der
-  stündliche Abruf.
-- **Standard aus:** Ohne den Schalter ist die Route (`POST consentlaw/neu-laden/{typ}`,
-  Name `consentlaw.neu-laden`) nicht registriert.
+Mit gesetztem Schalter erscheint **über** jeder Dokument-Komponente (`<x-consentlaw::impressum />`,
+`<x-consentlaw::document />` …) und über `<x-consentlaw::jobs />` ein Button „Neu laden“
+(auch, wenn gerade kein Inhalt oder ein Slot-Fallback angezeigt wird). Ein Klick holt genau
+diesen Typ frisch von consentLaw (Cache und Wartezeit nach einer Störung werden umgangen,
+Fallback-Datei wird aktualisiert) und leitet auf die vorherige Seite zurück. Eine Störung
+führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
+
+- **Standard aus:** Die Route (`POST consentlaw/neu-laden/{typ}`, Name `consentlaw.neu-laden`)
+  und das Limit sind immer registriert; ohne den Schalter antwortet die Aktion mit 404, ohne
+  die API aufzurufen, und es erscheint kein Button.
+- **Alternative ohne Button:** `php artisan consentlaw:warm`.
+- **CSRF-Hinweis:** Homepages, deren `web`-Gruppe weder `StartSession` noch `VerifyCsrfToken`
+  enthält, haben für diese Route keinen CSRF-Schutz. Solange `APP_TEST` an ist, kann dann eine
+  fremde Seite das Neu laden auslösen (begrenzt auf 6 Anfragen pro Minute und IP). Den Schalter
+  deshalb nur kurz eingeschaltet lassen.
 - **Limit:** höchstens 6 Anfragen pro Minute und IP (sonst 429); der Aufruf braucht ein
-  gültiges CSRF-Token (Middleware-Gruppe `web`). Die Rückleitung geht nur auf die eigene
+  gültiges CSRF-Token (Middleware-Gruppe `web`, siehe CSRF-Hinweis). Die Rückleitung geht nur auf die eigene
   Domain. Hinter einem Reverse Proxy ohne konfigurierte Trusted Proxies teilen sich alle
   Besucher eine IP und damit das Limit.
-- **Darstellung:** schlicht; das Formular trägt die Klasse `consentlaw-refresh`. Eigenes
-  Markup über die veröffentlichten Views (`partials/neu-laden.blade.php`).
+- **Darstellung:** dezentes Entwicklungswerkzeug (kleiner Button mit gestricheltem Rand); das
+  Partial bringt einen eigenen `<style>`-Block mit niedriger Spezifität mit, das Formular trägt
+  die Klasse `consentlaw-refresh` und lässt sich im Seiten-CSS überschreiben. Eigenes Markup
+  über die veröffentlichten Views (`partials/neu-laden.blade.php`).
 - **Sprache:** Hat die Komponente ein `locale`-Attribut (`<x-consentlaw::impressum locale="en" />`),
   sendet der Button diese Sprache mit (verstecktes Feld `locale`; erlaubt sind Angaben wie
   `de`, `en`, `en_GB`, `pt-BR` – andere Schreibweisen wie `DE` führen beim Klick zu 422) und lädt genau diese
   Sprachvariante neu. Ohne `locale`-Attribut wird die konfigurierte Standardsprache
   (`CONSENTLAW_LOCALE`) neu geladen. Eine ungültige Sprachangabe (erlaubt: `de`, `en`,
   `de_DE`, `pt-BR` …) wird mit 422 abgewiesen, ohne dass die API aufgerufen wird.
-- **Freigabe auch in der Aktion:** Die Aktion prüft die Freigabe (Schalter an, nicht
-  production) bei jedem Aufruf erneut und antwortet sonst mit 404 ohne API-Aufruf – auch
-  wenn die Route z. B. aus einem in anderer Umgebung erzeugten Route-Cache stammt.
+- **Freigabe auch in der Aktion:** Die Aktion prüft die Freigabe (Schalter `APP_TEST` an) bei jedem Aufruf erneut und antwortet sonst mit 404 ohne API-Aufruf – auch
+  wenn die Route z. B. aus einem Route-Cache stammt.
 - **Bekannte Grenze:** Ist der Fallback per `.env` abgeschaltet und das Neu-Laden scheitert,
   kann die Seite bis zum nächsten erfolgreichen Abruf ohne Inhalt sein (Standard: Fallback an).
 
@@ -299,6 +307,25 @@ ServiceProvider:
 ```php
 $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 ```
+
+## Changelog
+
+### Unveröffentlicht
+
+- **Breaking:** Die ENV-Variable `CONSENTLAW_REFRESH_BUTTON` entfällt. Der „Neu laden“-Button
+  folgt dem zentralen Hilfen-Schalter `APP_TEST` (Config `refresh_button`). Der Schalter wirkt
+  jetzt auch auf Production; die bisherige Sperre für `production` entfällt. Bei veröffentlichter
+  Config `'refresh_button' => env('APP_TEST', false)` übernehmen, in der `.env`
+  `CONSENTLAW_REFRESH_BUTTON` durch `APP_TEST` ersetzen.
+- Der Button steht jetzt **vor** dem Inhalt bzw. Slot (auch bei Störung ohne Fallback) und bringt
+  ein eigenes, überschreibbares Stylesheet (`.consentlaw-refresh`) mit. Bei veröffentlichten Views
+  das Partial `partials/neu-laden.blade.php` neu übernehmen und das `@include` in eigenen Kopien
+  von `document` und `jobs` an den Anfang setzen.
+- `NeuLadenFreigabe` hängt nicht mehr von `Application` ab.
+- Route und Limiter `consentlaw-neu-laden` sind jetzt immer registriert; die Freigabe prüft nur
+  noch die Aktion (ohne Schalter 404 ohne API-Aufruf) und das Partial (Button). Damit ist es
+  egal, ob die Routen gecacht sind (`route:cache`). Bei gecachter Config nach einer Änderung an
+  `APP_TEST` `php artisan config:clear` ausführen.
 
 ## Upgrade auf 1.2
 
