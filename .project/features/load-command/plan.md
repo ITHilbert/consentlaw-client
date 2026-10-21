@@ -9,8 +9,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/load-command`
 
 ## Aufgaben
 - [x] T0 TESTS: `test-writer` — AK1, AK2; rot: 56 Errors (Klasse fehlt), 4 Failures (alte Namen).
-- [ ] T1 (AK1, AK2) [pro] Umbenennen, Meldungstexte, README, Changelog.
-- [ ] NACHWEIS · REVIEW
+- [x] T1 (AK1, AK2) [pro] Umbenennen, Meldungstexte, README, Changelog.
+- [x] NACHWEIS: 733 Tests grün, Tests seit 52a5763 unverändert, keine alten Namen in src/README.
+- [ ] REVIEW
 
 ## Stand
-T0 fertig, T1 läuft.
+NACHWEIS fertig, REVIEW läuft.

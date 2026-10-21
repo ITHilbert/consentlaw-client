@@ -145,7 +145,7 @@ Ein 404 wird für die Dauer von `CONSENTLAW_CACHE_TTL` vermerkt: Ein Kunde ohne 
 nicht bei jedem Seitenaufruf einen HTTP-Aufruf aus. Ein 404 wird außerdem nicht
 wiederholt (`http.retries` gilt nur für Störungen: Verbindungsfehler, 5xx, andere
 Fehlerstatus). Bei `cache.enabled=false` oder TTL `0` wird nicht gecacht.
-`forget()`, `refresh()`, `consentlaw:reload` und `consentlaw:flush` verwerfen den Vermerk.
+`forget()`, `refresh()`, `consentlaw:load` und `consentlaw:flush` verwerfen den Vermerk.
 
 ### Wartezeit nach einer Störung
 
@@ -156,7 +156,7 @@ abgelaufenen Cache-TTL jeder Seitenaufruf erneut auf den API-Timeout warten, und
 Homepage wäre bei einem Ausfall von consentLaw langsam. Nach Ablauf wird die API wieder
 gefragt. Die Wartezeit gilt je Inhalt, liegt im Cache-Store und ist von
 `CONSENTLAW_CACHE_TTL`/`cache.enabled` unabhängig; `0` schaltet sie ab.
-`consentlaw:reload` und `consentlaw:flush` heben sie auf.
+`consentlaw:load` und `consentlaw:flush` heben sie auf.
 
 Fallback-Dateien liegen auf der konfigurierten Disk unter `consentlaw/` (beim
 Standard-Disk `local` ist das `storage/app/private/consentlaw/`) und enthalten den
@@ -169,11 +169,11 @@ Der `storage/`-Ordner ist üblicherweise nicht im Git. Damit direkt nach einem D
 Fallback-Stand bereitliegt:
 
 ```bash
-php artisan consentlaw:reload
+php artisan consentlaw:load
 php artisan consentlaw:flush   # Cache + Fallback verwerfen
 ```
 
-`consentlaw:reload` meldet einen nicht veröffentlichten Typ (404, z. B. ein Kunde ohne
+`consentlaw:load` meldet einen nicht veröffentlichten Typ (404, z. B. ein Kunde ohne
 AGB) nur als Hinweis und endet mit Exit-Code 0. Exit-Code 1 gibt es nur ohne Token oder
 wenn ein Typ wegen einer **Störung** weder von der API noch aus dem Fallback geliefert
 werden konnte – so scheitern Deploy-Skripte nur bei echten Problemen.
@@ -190,10 +190,10 @@ meldet deshalb drei Störungsfälle als **Event** (Namespace `ITHilbert\ConsentL
 |---|---|---|
 | `RechtstextNichtLieferbar` | API gestört (kein 404) und kein Fallback vorhanden bzw. Fallback abgeschaltet – der Inhalt fehlt auf der Seite | `typ`, `locale`, `fehler` |
 | `NotstandVeraltet` | API gestört, ausgeliefert wird ein Fallback, der älter ist als `CONSENTLAW_FALLBACK_WARN_AFTER` (Standard 7 Tage). Der Inhalt bleibt sichtbar | `typ`, `locale`, `alterInSekunden`, `fehler` |
-| `TokenVermutlichUngueltig` | `consentlaw:reload`: **alle** Typen antworten mit 404 (Exit-Code und Ausgabe wie bisher) | – |
+| `TokenVermutlichUngueltig` | `consentlaw:load`: **alle** Typen antworten mit 404 (Exit-Code und Ausgabe wie bisher) | – |
 
 `RechtstextNichtLieferbar` und `NotstandVeraltet` entstehen beim Seitenaufruf, beim
-„Neu laden“-Button und bei `consentlaw:reload` – aber nur, wenn wirklich abgerufen wurde:
+„Neu laden“-Button und bei `consentlaw:load` – aber nur, wenn wirklich abgerufen wurde:
 Während der Wartezeit nach einer Störung (`CONSENTLAW_FALLBACK_RETRY_AFTER`) wird nicht
 abgerufen und deshalb auch nichts gemeldet. Ein einzelnes 404 („nicht veröffentlicht“,
 z. B. ein Kunde ohne AGB) ist keine Störung. `fehler` enthält den Token nur maskiert.
@@ -225,7 +225,7 @@ Eine eigene Mail-Konfiguration gibt es im Package nicht mehr.
   Ohne `ALERTS_MAIL_TO` geht also keine Mail raus, und es erscheint keine Fehlermeldung.
 - **Fehlschlag:** Wirft der Port eine Exception, wird das als Warnung geloggt
   (`[consentlaw] Störungsmeldung an alerts fehlgeschlagen.`, Token maskiert). Seitenaufruf,
-  Fallback und Exit-Code von `consentlaw:reload` bleiben unverändert.
+  Fallback und Exit-Code von `consentlaw:load` bleiben unverändert.
 - **Abschalten:** Meldungen lassen sich in alerts abschalten, z. B. mit `ALERTS_ENABLED=false`.
   Das wirkt auf alle Meldungen des Hosts. Die Events werden dabei weiter ausgelöst.
 
@@ -284,7 +284,7 @@ führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
   `zurueck` mit; die Rückleitung funktioniert damit auch mit `Referrer-Policy: no-referrer`.
   Akzeptiert wird nur ein lokaler Pfad; ein ungültiger Wert verhindert das Neu laden nicht,
   die Rückleitung nutzt dann den Referer des eigenen Hosts bzw. die Startseite.
-- **Alternative ohne Button:** `php artisan consentlaw:reload`.
+- **Alternative ohne Button:** `php artisan consentlaw:load`.
 - **CSRF-Hinweis:** Homepages, deren `web`-Gruppe weder `StartSession` noch `VerifyCsrfToken`
   enthält, haben für diese Route keinen CSRF-Schutz. Solange `APP_TEST` an ist, kann dann eine
   fremde Seite das Neu laden auslösen (begrenzt auf 6 Anfragen pro Minute und IP). Den Schalter
@@ -407,7 +407,7 @@ filtert HTML beim Speichern.
 
 Der Domain-Token steht im URL-Pfad der API (`api/impressum/<token>`) und ist ein
 Geheimnis. Er erscheint **nie** im Klartext in Exception-Meldungen, Log-Einträgen oder
-der Ausgabe von `consentlaw:reload`. Die Maskierung passiert an einer Stelle
+der Ausgabe von `consentlaw:load`. Die Maskierung passiert an einer Stelle
 (`ITHilbert\ConsentLaw\Support\TokenMaskierung`, genutzt vom `HttpTransport` und von der
 Störungsmeldung an alerts) und gilt auch für Meldungen fremder Bibliotheken (Guzzle/cURL nennen die vollständige URL):
 
@@ -445,8 +445,6 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 - **Fix:** Die Rückleitung des „Neu laden“-Buttons funktioniert auch ohne Referer (z. B.
   `Referrer-Policy: no-referrer`): Das Formular sendet die aktuelle Adresse im Feld `zurueck`,
   ausgewertet wird nur ein lokaler Pfad.
-- **Breaking:** `consentlaw:warm` heißt jetzt `consentlaw:reload` (kein Alias). Scheduler-Einträge
-  und Deploy-Skripte umstellen.
 - **Breaking:** Die ENV-Variable `CONSENTLAW_REFRESH_BUTTON` entfällt. Der „Neu laden“-Button
   folgt dem zentralen Hilfen-Schalter `APP_TEST` (Config `refresh_button`). Der Schalter wirkt
   jetzt auch auf Production; die bisherige Sperre für `production` entfällt. Bei veröffentlichter
@@ -532,7 +530,7 @@ Verlangt `league/commonmark` ab 2.10.2. Ältere Versionen haben einen DoS in der
   andere Fehlerstatus gilt als Störung und liefert den Fallback.
 - Markdown wird gefiltert gerendert (`MarkdownRenderer`), rohes HTML und
   `javascript:`-Links werden entfernt.
-- `consentlaw:warm` endet bei „nicht veröffentlicht“ mit Exit-Code 0, außer alle Typen
+- `consentlaw:load` endet bei „nicht veröffentlicht“ mit Exit-Code 0, außer alle Typen
   sind 404 (Token prüfen).
 
 ## Lizenz

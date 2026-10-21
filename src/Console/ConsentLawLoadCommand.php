@@ -24,9 +24,9 @@ use ITHilbert\ConsentLaw\Events\TokenVermutlichUngueltig;
  * Token ungültig, und der Befehl endet mit FAILURE samt Token-Hinweis und meldet das
  * Event TokenVermutlichUngueltig. Störungen je Typ meldet der ContentResolver selbst.
  */
-final class ConsentLawReloadCommand extends Command
+final class ConsentLawLoadCommand extends Command
 {
-    protected $signature = 'consentlaw:reload {--locale= : Sprache, z.B. de oder en}';
+    protected $signature = 'consentlaw:load {--locale= : Sprache, z.B. de oder en}';
 
     protected $description = 'Verwirft Cache und Sperrvermerk und lädt alle consentLaw-Inhalte frisch; legt den Fallback-Stand an';
 

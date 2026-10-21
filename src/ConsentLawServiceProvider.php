@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use ITHilbert\ConsentLaw\Benachrichtigung\MeldeStoerungAnAlerts;
 use ITHilbert\ConsentLaw\Console\ConsentLawFlushCommand;
-use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawLoadCommand;
 use ITHilbert\ConsentLaw\Contracts\FallbackStore;
 use ITHilbert\ConsentLaw\Contracts\Transport;
 use ITHilbert\ConsentLaw\Events\NotstandVeraltet;
@@ -94,7 +94,7 @@ class ConsentLawServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ConsentLawFlushCommand::class,
-                ConsentLawReloadCommand::class,
+                ConsentLawLoadCommand::class,
             ]);
 
             $this->publishes([
