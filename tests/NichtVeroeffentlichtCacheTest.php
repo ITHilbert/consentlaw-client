@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Tests;
 
-use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawLoadCommand;
 use ITHilbert\ConsentLaw\Data\Abrufstatus;
 
 /**
  * AK8 – „Nicht veröffentlicht“ (404) wird gecacht, nicht wiederholt und
- * von forget()/refresh()/consentlaw:reload verworfen.
+ * von forget()/refresh()/consentlaw:load verworfen.
  *
  * Ohne Cache würde jeder Seitenaufruf eines Kunden ohne z. B. AGB einen
  * HTTP-Aufruf (plus Retry) auslösen.
@@ -275,7 +275,7 @@ final class NichtVeroeffentlichtCacheTest extends AppTestCase
         $this->client()->jobs()->all();
 
         $this->api(['/api/jobs/' => $this->jobsPayload(), '*' => $this->dokumentPayload('# Inhalt')]);
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(0, $code, $ausgabe);
         $this->assertDoesNotMatchRegularExpression('/agb.*nicht veröffentlicht/u', $ausgabe, "reload darf den gecachten 404 nicht übernehmen.\n{$ausgabe}");

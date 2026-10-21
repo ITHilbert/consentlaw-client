@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace ITHilbert\ConsentLaw\Tests;
 
 use ITHilbert\Alerts\Domain\Meldung;
-use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawLoadCommand;
 use RuntimeException;
 
 /**
@@ -25,7 +25,7 @@ use RuntimeException;
  *  - Keine eigene Sperre/Drosselung mehr: jedes Event → eine Meldung (Drosselung macht alerts
  *    über den festen Schlüssel je Fall).
  *  - Wirft der Reporter (darf laut Vertrag nicht passieren, aber Rechtstexte gehen vor), wird das
- *    als Warnung geloggt (Token maskiert); Seitenaufruf und consentlaw:reload verhalten sich unverändert.
+ *    als Warnung geloggt (Token maskiert); Seitenaufruf und consentlaw:load verhalten sich unverändert.
  *  - Entfällt: Config-Block consentlaw.alerts, View consentlaw::mail.stoerung,
  *    Klassen Benachrichtigung\MeldeStoerungPerMail und Benachrichtigung\StoerungsMail.
  */
@@ -108,7 +108,7 @@ final class StoerungsAlertsTest extends AppTestCase
         $this->assertSame('impressum', $meldung->details['Typ'] ?? null);
         $this->assertSame('de', $meldung->details['Sprache'] ?? null);
         $this->assertStringContainsString('kein gespeicherter Stand', (string) ($meldung->details['Was ist passiert'] ?? ''));
-        $this->assertStringContainsString('consentlaw:reload', (string) ($meldung->details['Was ist zu tun'] ?? ''));
+        $this->assertStringContainsString('consentlaw:load', (string) ($meldung->details['Was ist zu tun'] ?? ''));
         $this->assertArrayNotHasKey('Alter', $meldung->details);
     }
 
@@ -135,7 +135,7 @@ final class StoerungsAlertsTest extends AppTestCase
     {
         $this->api(['*' => 404]);
 
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $meldung = $this->einzige();
         $this->assertSame('consentlaw.token-vermutlich-ungueltig', $meldung->schluessel);
@@ -265,10 +265,10 @@ final class StoerungsAlertsTest extends AppTestCase
     public function test_reload_mit_kaputtem_reporter_hat_denselben_exit_code_token_fall(): void
     {
         $this->api(['*' => 404]);
-        [$heil, $ausgabeHeil] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$heil, $ausgabeHeil] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->reporterKaputt();
-        [$kaputt, $ausgabeKaputt] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$kaputt, $ausgabeKaputt] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(1, $heil);
         $this->assertSame($heil, $kaputt);
@@ -278,10 +278,10 @@ final class StoerungsAlertsTest extends AppTestCase
     public function test_reload_mit_kaputtem_reporter_hat_denselben_exit_code_bei_stoerung(): void
     {
         $this->api(['*' => self::STOERUNG]);
-        [$heil] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$heil] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->reporterKaputt();
-        [$kaputt] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$kaputt] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(1, $heil);
         $this->assertSame($heil, $kaputt);
@@ -291,11 +291,11 @@ final class StoerungsAlertsTest extends AppTestCase
     {
         $this->reporterKaputt();
         $this->api(['/api/jobs/' => $this->jobsPayload(), '*' => $this->dokumentPayload('# Inhalt')]);
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
         $this->reise(10 * 86400);
 
         $this->api(['*' => self::STOERUNG]);
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(0, $code, $ausgabe);
     }
