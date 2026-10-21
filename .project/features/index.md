@@ -1,4 +1,5 @@
 ## In Arbeit
+- [load-command](load-command/plan.md) — `consentlaw:reload` → `consentlaw:load`
 
 ## Geplant
 - `Document::contentHtml()` – Markdown/HTML-Unterscheidung in `components/document` und `pages/document` an eine Stelle ziehen (wie AK8 jobs-google-for-jobs)
