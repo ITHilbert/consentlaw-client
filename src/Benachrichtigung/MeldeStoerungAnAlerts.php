@@ -19,7 +19,7 @@ use Throwable;
  *
  * Ein fester Schlüssel je Fall (`consentlaw.<fall>`); Drosselung und Versand liegen bei alerts.
  * Scheitert die Meldung, wird nur eine Warnung geloggt (Token maskiert): Seitenaufruf und
- * `consentlaw:reload` verhalten sich wie ohne Meldung.
+ * `consentlaw:load` verhalten sich wie ohne Meldung.
  */
 final readonly class MeldeStoerungAnAlerts
 {

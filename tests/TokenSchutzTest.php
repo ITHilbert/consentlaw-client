@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace ITHilbert\ConsentLaw\Tests;
 
 use Illuminate\Http\Client\Request;
-use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawLoadCommand;
 use ITHilbert\ConsentLaw\Contracts\Transport;
 use ITHilbert\ConsentLaw\Exceptions\ConsentLawException;
 use ITHilbert\ConsentLaw\Facades\ConsentLaw;
@@ -17,7 +17,7 @@ use Throwable;
  * AK2 (Feature zeilenumbruch-token) – Kein Token in Meldungen.
  *
  * Bei Störung, 404 oder sonstigem Fehler beim Abruf enthält weder eine Exception-Meldung
- * noch ein Log-Eintrag (Meldung + Kontext) noch die Ausgabe von `consentlaw:reload` den Token
+ * noch ein Log-Eintrag (Meldung + Kontext) noch die Ausgabe von `consentlaw:load` den Token
  * im Klartext. URLs erscheinen mit maskiertem Token (höchstens die ersten 4 Zeichen,
  * Token bis 4 Zeichen vollständig maskiert). Das genaue Maskenzeichen ist bewusst nicht
  * festgelegt – geprüft wird nur, was vom Token sichtbar bleibt.
@@ -306,7 +306,7 @@ final class TokenSchutzTest extends AppTestCase
         $this->addToAssertionCount(1);
     }
 
-    // ── consentlaw:reload ──────────────────────────────────────────────────────
+    // ── consentlaw:load ──────────────────────────────────────────────────────
 
     // AK2
     #[DataProvider('stoerungen')]
@@ -315,9 +315,9 @@ final class TokenSchutzTest extends AppTestCase
         $this->setzeToken(self::GEHEIM);
         $this->api(['*' => $antwort]);
 
-        [, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
-        $this->pruefeOhneToken($ausgabe, self::GEHEIM, 'Ausgabe von consentlaw:reload');
+        $this->pruefeOhneToken($ausgabe, self::GEHEIM, 'Ausgabe von consentlaw:load');
         $this->pruefeOhneToken($this->logText(), self::GEHEIM, 'Log');
     }
 
@@ -328,9 +328,9 @@ final class TokenSchutzTest extends AppTestCase
         $this->setzeToken($token);
         $this->api(['*' => $antwort]);
 
-        [, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
-        $this->pruefeOhneToken($ausgabe, $token, 'Ausgabe von consentlaw:reload');
+        $this->pruefeOhneToken($ausgabe, $token, 'Ausgabe von consentlaw:load');
         $this->pruefeOhneToken($this->logText(), $token, 'Log');
     }
 }

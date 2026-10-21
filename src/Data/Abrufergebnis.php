@@ -10,7 +10,7 @@ use Carbon\CarbonImmutable;
  * Ergebnis eines Endpoint-Abrufs: der Inhalt und der Grund, warum er (nicht) da ist.
  *
  * Für Aufrufer, die „nicht veröffentlicht“ von „Störung“ unterscheiden müssen
- * (z. B. `consentlaw:reload`). Wer nur den Inhalt braucht, nutzt weiter get()/all().
+ * (z. B. `consentlaw:load`). Wer nur den Inhalt braucht, nutzt weiter get()/all().
  *
  * @template T
  */

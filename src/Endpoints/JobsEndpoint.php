@@ -64,7 +64,7 @@ final readonly class JobsEndpoint
 
     /**
      * Verwirft Cache-Eintrag und Sperrvermerk und ruft sofort frisch ab.
-     * Die eine Stelle für „Neu laden“ (Button und `consentlaw:reload`).
+     * Die eine Stelle für „Neu laden“ (Button und `consentlaw:load`).
      *
      * @return Abrufergebnis<Collection<int, Job>>
      */

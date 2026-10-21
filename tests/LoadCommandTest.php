@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Tests;
 
-use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawLoadCommand;
 
 /**
- * AK7 – `consentlaw:reload` scheitert nur bei echten Problemen.
+ * AK7 – `consentlaw:load` scheitert nur bei echten Problemen.
  *
  * VERTRAG (Ausgabe, neu):
  *  - Typ nicht veröffentlicht (404): die Ausgabezeile nennt den Typ und den Text
@@ -21,7 +21,7 @@ use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
  * Der Command läuft über die echte Provider-Verdrahtung mit Fake-HTTP; Exit-Code
  * und Ausgabe kommen aus Command::run() mit BufferedOutput (AppTestCase::fuehreAus()).
  */
-final class ReloadCommandTest extends AppTestCase
+final class LoadCommandTest extends AppTestCase
 {
     /** Alle Typen veröffentlicht; $abweichungen überschreiben einzelne Typen. */
     private function alleVeroeffentlicht(array $abweichungen = []): array
@@ -34,7 +34,7 @@ final class ReloadCommandTest extends AppTestCase
     {
         $this->api($this->alleVeroeffentlicht());
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(0, $code, $ausgabe);
         $this->assertCount(6, $this->fallbackDateien(), 'Fallback-Dateien für 5 Dokumente und die Jobs erwartet.');
@@ -45,7 +45,7 @@ final class ReloadCommandTest extends AppTestCase
     {
         $this->api($this->alleVeroeffentlicht(['/api/agb/' => 404]));
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(0, $code, "404 = nicht veröffentlicht darf den Befehl nicht scheitern lassen.\n{$ausgabe}");
     }
@@ -55,7 +55,7 @@ final class ReloadCommandTest extends AppTestCase
     {
         $this->api($this->alleVeroeffentlicht(['/api/agb/' => 404]));
 
-        [, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertMatchesRegularExpression('/agb.*nicht veröffentlicht/u', $ausgabe, "Hinweis zu agb fehlt.\n{$ausgabe}");
         $this->assertDoesNotMatchRegularExpression('/impressum.*nicht veröffentlicht/u', $ausgabe, 'Veröffentlichte Typen dürfen nicht als „nicht veröffentlicht“ gemeldet werden.');
@@ -66,7 +66,7 @@ final class ReloadCommandTest extends AppTestCase
     {
         $this->api($this->alleVeroeffentlicht(['/api/avv/' => self::STOERUNG]));
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(1, $code, $ausgabe);
     }
@@ -76,7 +76,7 @@ final class ReloadCommandTest extends AppTestCase
     {
         $this->api($this->alleVeroeffentlicht(['/api/avv/' => self::STOERUNG]));
 
-        [, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertMatchesRegularExpression('/avv.*Störung/u', $ausgabe, "Die Störung bei avv muss als Störung gemeldet werden.\n{$ausgabe}");
         $this->assertDoesNotMatchRegularExpression('/avv.*nicht veröffentlicht/u', $ausgabe, 'Eine Störung ist nicht „nicht veröffentlicht“.');
@@ -87,7 +87,7 @@ final class ReloadCommandTest extends AppTestCase
     {
         $this->api($this->alleVeroeffentlicht(['/api/avv/' => 429]));
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(1, $code, $ausgabe);
         $this->assertMatchesRegularExpression('/avv.*Störung/u', $ausgabe);
@@ -98,7 +98,7 @@ final class ReloadCommandTest extends AppTestCase
     {
         $this->api($this->alleVeroeffentlicht(['/api/agb/' => 404, '/api/avv/' => self::STOERUNG]));
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(1, $code, $ausgabe);
         $this->assertMatchesRegularExpression('/agb.*nicht veröffentlicht/u', $ausgabe);
@@ -109,11 +109,11 @@ final class ReloadCommandTest extends AppTestCase
     public function test_stoerung_mit_vorhandenem_fallback_endet_mit_success(): void
     {
         $this->api($this->alleVeroeffentlicht());
-        [$erster] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$erster] = $this->fuehreAus(ConsentLawLoadCommand::class);
         $this->assertSame(0, $erster, 'Vorbedingung: erster Lauf legt die Fallback-Dateien an.');
 
         $this->api($this->alleVeroeffentlicht(['/api/avv/' => self::STOERUNG]));
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(0, $code, "Mit Fallback wurde der Inhalt geliefert – kein Fehler.\n{$ausgabe}");
         $this->assertStringContainsString('Fallback', $ausgabe);
@@ -124,7 +124,7 @@ final class ReloadCommandTest extends AppTestCase
     {
         $this->konfig('token', null);
 
-        [$code] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(1, $code);
         $this->assertSame(0, $this->anzahlAufrufe(), 'Ohne Token darf keine Anfrage rausgehen.');

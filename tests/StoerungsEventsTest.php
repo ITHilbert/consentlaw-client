@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Tests;
 
-use ITHilbert\ConsentLaw\Console\ConsentLawReloadCommand;
+use ITHilbert\ConsentLaw\Console\ConsentLawLoadCommand;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -16,7 +16,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *  - `TokenVermutlichUngueltig`  : keine Pflicht-Properties.
  *  - `NotstandVeraltet`          : `typ`, `locale` (?string), `alterInSekunden` (int), `fehler` (string).
  *
- * Ausgelöst werden sie beim Seitenaufruf/Button (ContentResolver) und bei `consentlaw:reload`.
+ * Ausgelöst werden sie beim Seitenaufruf/Button (ContentResolver) und bei `consentlaw:load`.
  * Die Tests hängen eigene Listener an den Dispatcher (AppTestCase::fangeEvents) und lösen
  * nichts selbst aus. Zeit läuft über Carbon::setTestNow (AppTestCase::reise()).
  */
@@ -114,7 +114,7 @@ final class StoerungsEventsTest extends AppTestCase
         $events = $this->fangeEvents();
         $this->api(['*' => self::STOERUNG]);
 
-        [$code] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $typen = array_map(static fn (object $e): string => $e->typ, $this->davon($events, self::NICHT_LIEFERBAR));
         sort($typen);
@@ -129,7 +129,7 @@ final class StoerungsEventsTest extends AppTestCase
         $this->api(['*' => 404]);
 
         $this->rendere('<x-consentlaw::impressum />');
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertCount(0, $this->davon($events, self::NICHT_LIEFERBAR), '404 = „nicht veröffentlicht“, keine Störung.');
         $this->assertCount(0, $this->davon($events, self::NOTSTAND));
@@ -142,7 +142,7 @@ final class StoerungsEventsTest extends AppTestCase
         $this->api(['/api/jobs/' => $this->jobsPayload(), '*' => $this->dokumentPayload('# Inhalt')]);
 
         $this->rendere('<x-consentlaw::impressum />');
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertCount(0, $events);
     }
@@ -183,7 +183,7 @@ final class StoerungsEventsTest extends AppTestCase
         $events = $this->fangeEvents();
         $this->api(['*' => 404]);
 
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertCount(1, $this->davon($events, self::TOKEN_UNGUELTIG));
         $this->assertCount(0, $this->davon($events, self::NICHT_LIEFERBAR), '404 ist keine Störung.');
@@ -195,7 +195,7 @@ final class StoerungsEventsTest extends AppTestCase
         $this->fangeEvents();
         $this->api(['*' => 404]);
 
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(1, $code, $ausgabe);
         $this->assertStringContainsString('Alle Inhalte sind „nicht veröffentlicht“ – bitte den Token (CONSENTLAW_TOKEN) prüfen, er ist vermutlich ungültig.', $ausgabe);
@@ -210,7 +210,7 @@ final class StoerungsEventsTest extends AppTestCase
         $events = $this->fangeEvents();
         $this->api(['/api/agb/' => 404, '/api/jobs/' => $this->jobsPayload(), '*' => $this->dokumentPayload('# Inhalt')]);
 
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertCount(0, $this->davon($events, self::TOKEN_UNGUELTIG));
     }
@@ -221,7 +221,7 @@ final class StoerungsEventsTest extends AppTestCase
         $events = $this->fangeEvents();
         $this->api(['/api/jobs/' => $this->jobsPayload(), '*' => 404]);
 
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertCount(0, $this->davon($events, self::TOKEN_UNGUELTIG));
     }
@@ -232,7 +232,7 @@ final class StoerungsEventsTest extends AppTestCase
         $events = $this->fangeEvents();
         $this->api(['*' => self::STOERUNG]);
 
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertCount(0, $this->davon($events, self::TOKEN_UNGUELTIG));
     }
@@ -245,7 +245,7 @@ final class StoerungsEventsTest extends AppTestCase
 
         $this->rendere('<x-consentlaw::impressum />');
 
-        $this->assertCount(0, $this->davon($events, self::TOKEN_UNGUELTIG), 'Das Event gehört nur zu `consentlaw:reload`.');
+        $this->assertCount(0, $this->davon($events, self::TOKEN_UNGUELTIG), 'Das Event gehört nur zu `consentlaw:load`.');
     }
 
     // ── AK3 ──────────────────────────────────────────────────────────────────
@@ -324,12 +324,12 @@ final class StoerungsEventsTest extends AppTestCase
     public function test_notstand_veraltet_bei_reload_trotz_exit_code_success(): void
     {
         $this->api(['/api/jobs/' => $this->jobsPayload(), '*' => $this->dokumentPayload('# Inhalt')]);
-        $this->fuehreAus(ConsentLawReloadCommand::class);
+        $this->fuehreAus(ConsentLawLoadCommand::class);
         $this->reise(self::ACHT_TAGE);
 
         $events = $this->fangeEvents();
         $this->api(['*' => self::STOERUNG]);
-        [$code, $ausgabe] = $this->fuehreAus(ConsentLawReloadCommand::class);
+        [$code, $ausgabe] = $this->fuehreAus(ConsentLawLoadCommand::class);
 
         $this->assertSame(0, $code, "Der Fallback liefert – Exit-Code unverändert.\n{$ausgabe}");
         $this->assertCount(6, $this->davon($events, self::NOTSTAND), 'Je Typ (5 Dokumente + Jobs) ein Event.');

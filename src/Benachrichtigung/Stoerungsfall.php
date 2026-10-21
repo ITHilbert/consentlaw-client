@@ -43,7 +43,7 @@ enum Stoerungsfall: string
         return match ($this) {
             self::NichtLieferbar => 'consentLaw war nicht erreichbar, und es liegt kein gespeicherter Stand (Fallback) vor – '
                 .'der Inhalt fehlt auf der Website.',
-            self::TokenVermutlichUngueltig => 'Beim Neuladen (consentlaw:reload) haben alle Inhalte mit „nicht veröffentlicht“ '
+            self::TokenVermutlichUngueltig => 'Beim Neuladen (consentlaw:load) haben alle Inhalte mit „nicht veröffentlicht“ '
                 .'geantwortet. Fast sicher ist der Token ungültig – die Website zeigt keine Rechtstexte.',
             self::NotstandVeraltet => 'consentLaw war nicht erreichbar. Ausgeliefert wird der zuletzt gespeicherte Stand '
                 .'(Fallback), der älter ist als erlaubt (fallback.warn_after) und inhaltlich überholt sein kann.',
@@ -62,17 +62,17 @@ enum Stoerungsfall: string
                 'Status von consentLaw prüfen: Ist der Dienst erreichbar? Hinweise gibt der Fehlertext.',
                 'Erreichbarkeit vom Server aus prüfen (Firewall, DNS, ausgehende Verbindungen).',
                 'Ist der Fallback abgeschaltet (CONSENTLAW_FALLBACK_ENABLED=false), ihn wieder einschalten.',
-                'Nach der Behebung „php artisan consentlaw:reload“ ausführen – dann liegt auch wieder ein Fallback-Stand bereit.',
+                'Nach der Behebung „php artisan consentlaw:load“ ausführen – dann liegt auch wieder ein Fallback-Stand bereit.',
             ],
             self::TokenVermutlichUngueltig => [
                 'CONSENTLAW_TOKEN in der .env mit dem Token in consentLaw vergleichen (Domain → Integration & Setup).',
                 'In consentLaw prüfen, ob die Inhalte für diese Domain veröffentlicht sind.',
-                'Danach bei gecachter Config „php artisan config:clear“ und anschließend „php artisan consentlaw:reload“ ausführen.',
+                'Danach bei gecachter Config „php artisan config:clear“ und anschließend „php artisan consentlaw:load“ ausführen.',
             ],
             self::NotstandVeraltet => [
                 'Status von consentLaw prüfen: Ist der Dienst erreichbar? Hinweise gibt der Fehlertext.',
                 'Erreichbarkeit vom Server aus prüfen (Firewall, DNS, ausgehende Verbindungen).',
-                'Nach der Behebung „php artisan consentlaw:reload“ ausführen, damit wieder der aktuelle Stand ausgeliefert wird.',
+                'Nach der Behebung „php artisan consentlaw:load“ ausführen, damit wieder der aktuelle Stand ausgeliefert wird.',
             ],
         };
     }
