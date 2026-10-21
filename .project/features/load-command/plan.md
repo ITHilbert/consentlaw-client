@@ -8,9 +8,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/load-command`
 - Changelog „Unveröffentlicht“: Eintrag „`consentlaw:warm` heißt jetzt `consentlaw:reload`“ ersatzlos streichen (Package ohne Tag, nichts live).
 
 ## Aufgaben
-- [ ] T0 TESTS: `test-writer` — AK1, AK2; Rot-Nachweis.
+- [x] T0 TESTS: `test-writer` — AK1, AK2; rot: 56 Errors (Klasse fehlt), 4 Failures (alte Namen).
 - [ ] T1 (AK1, AK2) [pro] Umbenennen, Meldungstexte, README, Changelog.
 - [ ] NACHWEIS · REVIEW
 
 ## Stand
-Spec freigegeben (2026-10-21), T0 startet.
+T0 fertig, T1 läuft.
