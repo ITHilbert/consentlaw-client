@@ -11,7 +11,7 @@ Spec: [spec.md](spec.md) · Branch: `feature/load-command`
 - [x] T0 TESTS: `test-writer` — AK1, AK2; rot: 56 Errors (Klasse fehlt), 4 Failures (alte Namen).
 - [x] T1 (AK1, AK2) [pro] Umbenennen, Meldungstexte, README, Changelog.
 - [x] NACHWEIS: 733 Tests grün, Tests seit 52a5763 unverändert, keine alten Namen in src/README.
-- [ ] REVIEW
+- [x] REVIEW: freigegeben, AK1+AK2 bestanden ([pruefung.md](pruefung.md)).
 
 ## Stand
-NACHWEIS fertig, REVIEW läuft.
+Fertig, in `main` gemergt und gepusht (2026-10-21). it-hilbert.com wird direkt danach umgestellt.
