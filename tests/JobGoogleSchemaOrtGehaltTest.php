@@ -52,6 +52,8 @@ final class JobGoogleSchemaOrtGehaltTest extends AppTestCase
     /** @param  array<string, mixed>  $ueberschreibungen @return array<string, mixed> */
     private function schemaAusApi(array $ueberschreibungen): array
     {
+        // Jeder Aufruf rendert den eigenen Payload: sonst liefert der Client-Cache den des ersten Aufrufs.
+        $this->app['cache']->flush();
         $this->api(['*' => $this->jobsPayload($ueberschreibungen)]);
 
         $bloecke = $this->jsonLd($this->rendere('<x-consentlaw::jobs />'));
@@ -271,7 +273,11 @@ final class JobGoogleSchemaOrtGehaltTest extends AppTestCase
         $erwartet = ['@type' => 'Place', 'address' => ['@type' => 'PostalAddress', 'addressLocality' => 'Kiel']];
 
         $this->assertEquals($erwartet, $this->schemaAusApi(['location' => 'Kiel'])['jobLocation']);
-        $this->assertEquals($erwartet, $this->schemaAusApi(['location' => 'Kiel', 'work_location' => 'vor_ort', 'address' => null])['jobLocation']);
+        $this->assertEquals(
+            ['@type' => 'Place', 'address' => ['@type' => 'PostalAddress', 'addressLocality' => 'Hamburg']],
+            $this->schemaAusApi(['location' => 'Hamburg', 'work_location' => 'vor_ort', 'address' => null])['jobLocation'],
+            'Der zweite Aufruf rendert seinen eigenen Payload.',
+        );
     }
 
     // AK11
