@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ITHilbert\ConsentLaw\Support;
 
+use ITHilbert\ConsentLaw\Data\BaseSalary;
 use ITHilbert\ConsentLaw\Data\Job;
 
 /**
@@ -28,11 +29,25 @@ final class JobPostingSchema
             'employmentType' => $job->employmentTypeSchema,
             'datePosted' => $job->datePosted?->toIso8601String(),
             'validThrough' => $job->validThrough?->toIso8601String(),
-            'jobLocation' => $job->location ? [
-                '@type' => 'Place',
-                'address' => ['@type' => 'PostalAddress', 'addressLocality' => $job->location],
-            ] : null,
         ]);
+
+        // Arbeitsort: 'work_location' gewinnt, sonst gilt das alte remote-Flag.
+        $remote = match ($job->workLocation) {
+            'remote' => true,
+            'vor_ort' => false,
+            default => $job->remote,
+        };
+
+        if ($job->workLocation !== 'remote') {
+            $ort = self::jobLocation($job);
+            if ($ort !== null) {
+                $schema['jobLocation'] = $ort;
+            }
+        }
+
+        if ($job->baseSalary !== null) {
+            $schema['baseSalary'] = self::baseSalary($job->baseSalary);
+        }
 
         if ($job->hiringOrganization !== null) {
             $schema['hiringOrganization'] = array_filter([
@@ -43,7 +58,7 @@ final class JobPostingSchema
             ]);
         }
 
-        if ($job->remote) {
+        if ($remote) {
             $schema['jobLocationType'] = 'TELECOMMUTE';
             if ($job->applicantCountries !== []) {
                 $schema['applicantLocationRequirements'] = array_map(
@@ -63,6 +78,45 @@ final class JobPostingSchema
             self::array($job),
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
         );
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function jobLocation(Job $job): ?array
+    {
+        if ($job->address !== null) {
+            return [
+                '@type' => 'Place',
+                'address' => array_filter([
+                    '@type' => 'PostalAddress',
+                    'streetAddress' => $job->address->streetAddress,
+                    'postalCode' => $job->address->postalCode,
+                    'addressLocality' => $job->address->addressLocality,
+                    'addressCountry' => $job->address->addressCountry,
+                ]),
+            ];
+        }
+
+        return $job->location ? [
+            '@type' => 'Place',
+            'address' => ['@type' => 'PostalAddress', 'addressLocality' => $job->location],
+        ] : null;
+    }
+
+    /** @return array<string, mixed> */
+    private static function baseSalary(BaseSalary $gehalt): array
+    {
+        $betrag = $gehalt->value !== null
+            ? ['value' => $gehalt->value]
+            : ['minValue' => $gehalt->minValue, 'maxValue' => $gehalt->maxValue];
+
+        return [
+            '@type' => 'MonetaryAmount',
+            'currency' => $gehalt->currency,
+            'value' => array_filter(
+                ['@type' => 'QuantitativeValue', ...$betrag, 'unitText' => $gehalt->unit],
+                static fn (mixed $v): bool => $v !== null,
+            ),
+        ];
     }
 
     private static function absoluteUrl(?string $url): ?string

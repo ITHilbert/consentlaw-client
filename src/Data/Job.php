@@ -30,6 +30,10 @@ final readonly class Job
         public bool $remote = false,
         /** @var list<string> ISO-3166-1-alpha-2-Codes, aus denen Bewerbungen möglich sind. */
         public array $applicantCountries = [],
+        /** Arbeitsort: 'remote', 'vor_ort' oder null (nicht angegeben). */
+        public ?string $workLocation = null,
+        public ?JobAddress $address = null,
+        public ?BaseSalary $baseSalary = null,
     ) {}
 
     /**
@@ -52,6 +56,9 @@ final readonly class Job
             hiringOrganization: HiringOrganization::fromApi($payload['hiring_organization'] ?? null),
             remote: ($payload['remote'] ?? false) === true,
             applicantCountries: self::countries($payload['applicant_countries'] ?? null),
+            workLocation: self::workLocation($payload['work_location'] ?? null),
+            address: JobAddress::fromApi($payload['address'] ?? null),
+            baseSalary: BaseSalary::fromApi($payload['base_salary'] ?? null),
         );
     }
 
@@ -91,6 +98,11 @@ final readonly class Job
         }
 
         return array_values(array_unique($codes));
+    }
+
+    private static function workLocation(mixed $value): ?string
+    {
+        return in_array($value, ['remote', 'vor_ort'], true) ? $value : null;
     }
 
     private static function nullableString(mixed $value): ?string

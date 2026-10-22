@@ -359,8 +359,11 @@ falsch typisierte Werte ergeben die Standardwerte):
 | `hiring_organization` (`name`, `url`, `logo`) | `hiringOrganization` (`?HiringOrganization`) | `null` | `hiringOrganization` (`sameAs`/`logo` nur bei absoluter http(s)-URL) |
 | `remote` (bool) | `remote` | `false` | `jobLocationType: TELECOMMUTE` |
 | `applicant_countries` (ISO-3166-1 alpha-2) | `applicantCountries` | `[]` | `applicantLocationRequirements` |
+| `work_location` (`remote` \| `vor_ort`) | `workLocation` (`?string`) | `null` | `remote` → `jobLocationType: TELECOMMUTE` und kein `jobLocation`; `vor_ort` → weder `jobLocationType` noch `applicantLocationRequirements`; ohne Angabe gilt `remote` |
+| `address` (`street_address`, `postal_code`, `address_locality`, `address_country`) | `address` (`?JobAddress`) | `null` | `jobLocation` (Place + PostalAddress, leere Teile entfallen; ohne `address` der Freitext `location`) |
+| `base_salary` (`currency`, `unit`, `value` oder `min_value`/`max_value`) | `baseSalary` (`?BaseSalary`) | `null` | `baseSalary` (MonetaryAmount mit QuantitativeValue; Einheit `HOUR`, `DAY`, `WEEK`, `MONTH` oder `YEAR`) |
 
-Ein Arbeitgeber ohne Namen gilt als fehlend; Ländercodes werden großgeschrieben, ungültige und doppelte entfallen.
+Ein Arbeitgeber ohne Namen gilt als fehlend; Ländercodes werden großgeschrieben, ungültige und doppelte entfallen. Ein ungültiges Gehalt (unbekannte Einheit, Währung kein 3-Buchstaben-Code, kein oder negativer Betrag) und eine unbrauchbare Adresse gelten als fehlend. Das Beispiel oben gibt Remote- und Vor-Ort-Stellen ohne weitere Logik korrekt aus: `<x-consentlaw::jobs-schema>` übernimmt Ort, Remote-Angaben und Gehalt.
 
 ## Format der Inhalte
 
@@ -441,6 +444,7 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 
 ### Unveröffentlicht
 
+- **Neu:** Arbeitsort, Adresse und Gehalt je Stelle: `Job::$workLocation`, `$address` (`JobAddress`), `$baseSalary` (`BaseSalary`); das JSON-LD enthält `jobLocation` als PostalAddress, bei `remote` nur TELECOMMUTE, und `baseSalary`.
 - **Neu:** Jobs für Google for Jobs: `Job::$hiringOrganization`, `$remote`, `$applicantCountries` und die Komponente `<x-consentlaw::jobs-schema>` (siehe „Eigenes Markup“). Das JSON-LD wird in PHP gebaut; zuvor zerstörte die `@context`-Blade-Direktive es.
 - **Fix:** Die Rückleitung des „Neu laden“-Buttons funktioniert auch ohne Referer (z. B.
   `Referrer-Policy: no-referrer`): Das Formular sendet die aktuelle Adresse im Feld `zurueck`,
