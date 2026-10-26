@@ -2,6 +2,7 @@
 - [banner-komponente](banner-komponente/plan.md) — `<x-consentlaw::banner />` und Link `<x-consentlaw::cookie-einstellungen />`, `banner.js` bleibt bei consentLaw
 
 ## Geplant
+- `cookie-einstellungen`: Klick-Handler steht inline im `onclick` → bei strenger CSP ohne `unsafe-inline` wirkungslos. Ausweg: Datenattribut + Listener in `banner.js` (consentLaw). it-hilbert.com hat keine CSP (2026-10-26).
 - `Document::contentHtml()` – Markdown/HTML-Unterscheidung in `components/document` und `pages/document` an eine Stelle ziehen (wie AK8 jobs-google-for-jobs)
 - README: `:with-schema="false"` dokumentieren (statisch `with-schema="false"` ist truthy)
 - Package-Jobs-Seite: Controller übergibt `jobs`, View rendert `<x-consentlaw::jobs>` erneut → doppelter Abruf/doppelte Log-Warnung (Review 2 neu-laden-rueckmeldung)
