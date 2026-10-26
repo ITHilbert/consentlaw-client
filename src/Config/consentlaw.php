@@ -111,6 +111,19 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Consent-Banner
+    |---------------------------------------------------------------------------
+    | `<x-consentlaw::banner />` lädt banner.js von consentLaw (base_url, mit dem
+    | Token oben). `enabled` = false schaltet Banner und den Link
+    | `<x-consentlaw::cookie-einstellungen />` ab, z. B. in Entwicklungsumgebungen.
+    | Ohne Token bleibt die Ausgabe in jedem Fall leer.
+    */
+    'banner' => [
+        'enabled' => env('CONSENTLAW_BANNER_ENABLED', true),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Sprache
     |---------------------------------------------------------------------------
     | null = aktuelle App-Locale verwenden. consentLaw ist mehrsprachig; der
