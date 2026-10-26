@@ -11,11 +11,11 @@ Spec: [spec.md](spec.md) · Branch: `feature/banner-komponente`
 
 ## Aufgaben
 - [x] T0 TESTS: `test-writer` — AK1–AK7; rot: 26 (Banner 12, Link 10, README 4), übrige 790 grün (d5a406c).
-- [ ] T1 (AK1, AK2, AK3, AK4) [pro] Komponente `banner` + Schalter `banner.enabled` — Tests: `tests/BannerKomponenteTest.php`
+- [x] T1 (AK1, AK2, AK3, AK4) [pro] Komponente `banner` + Schalter `banner.enabled` — Tests: `tests/BannerKomponenteTest.php` — 03b1022, GATE grün, NACHWEIS 12/12 grün; „Banner aktiv“ in `Support/BannerFreigabe`
 - [ ] T2 (AK5, AK6) [pro] Komponente `cookie-einstellungen` — Tests: `tests/CookieEinstellungenKomponenteTest.php`
 - [ ] T3 (AK7) [junior] README, Changelog „Unveröffentlicht“ — Tests: `tests/BannerReadmeTest.php`
 - [ ] NACHWEIS
 - [ ] REVIEW
 
 ## Stand
-Tests rot committet (2026-10-26). Nächster Schritt: T1 CODE (coder-pro).
+T1 fertig (2026-10-26). Nächster Schritt: T2 CODE (coder-pro).
