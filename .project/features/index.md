@@ -1,4 +1,5 @@
 ## In Arbeit
+- [banner-komponente](banner-komponente/plan.md) — `<x-consentlaw::banner />` und Link `<x-consentlaw::cookie-einstellungen />`, `banner.js` bleibt bei consentLaw
 
 ## Geplant
 - `Document::contentHtml()` – Markdown/HTML-Unterscheidung in `components/document` und `pages/document` an eine Stelle ziehen (wie AK8 jobs-google-for-jobs)
