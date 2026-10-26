@@ -120,6 +120,47 @@ und `/jobs` erreichbar. Pfade, Middleware, Prefix und Layout sind in
 ],
 ```
 
+### Consent-Banner (optional)
+
+Der Consent-Banner von consentLaw ist eine Zeile im Layout, im `<head>`:
+
+```blade
+<head>
+    {{-- ... --}}
+    <x-consentlaw::banner />
+</head>
+```
+
+Die Komponente lädt `banner.js` von consentLaw (`{CONSENTLAW_URL}/banner.js?token=…`, mit
+`defer`) und verwendet dafür den vorhandenen `CONSENTLAW_TOKEN`. Ohne Token bleibt die
+Ausgabe leer; es findet auch keine API-Abfrage statt.
+
+Ein Link, der den Banner erneut öffnet, z. B. im Footer:
+
+```blade
+<footer>
+    <x-consentlaw::cookie-einstellungen class="text-light" />
+
+    {{-- mit eigenem Text --}}
+    <x-consentlaw::cookie-einstellungen class="text-light">
+        Cookie-Einstellungen ändern
+    </x-consentlaw::cookie-einstellungen>
+</footer>
+```
+
+Ist der Banner nicht aktiv, bleibt die Ausgabe des Links ebenfalls leer.
+
+Mit dem Schalter `CONSENTLAW_BANNER_ENABLED` schaltet man beide Komponenten ab, z. B.
+solange noch ein anderes Consent-Tool läuft. Der Standard ist eingeschaltet; der Wert
+steht in der Konfiguration unter `consentlaw.banner.enabled`.
+
+```dotenv
+CONSENTLAW_BANNER_ENABLED=false
+```
+
+**Hinweis:** Der Link nutzt einen Inline-Klick-Handler. Bei einer Content-Security-Policy
+ohne `unsafe-inline` wirkt er nicht.
+
 ## Caching & Ausfallsicherheit
 
 Ein Impressum darf nie von der Seite verschwinden, nur weil ein API-Aufruf
@@ -252,6 +293,7 @@ Event::listen(\ITHilbert\ConsentLaw\Events\RechtstextNichtLieferbar::class, func
 | `CONSENTLAW_ROUTES_ENABLED` | `false` | Fertige Seiten registrieren |
 | `APP_TEST` | `false` | Zentraler Hilfen-Schalter: „Neu laden“-Button (wirkt in jeder Umgebung, auch Production) |
 | `CONSENTLAW_LOCALE` | App-Locale | Sprache der Inhalte |
+| `CONSENTLAW_BANNER_ENABLED` | `true` | Consent-Banner und Link „Cookie-Einstellungen“ (siehe „Consent-Banner“) |
 
 Kanäle, Empfänger und Drosselung der Störungsmeldungen stehen in den `ALERTS_*`-Variablen
 von `ithilbert/alerts`.
@@ -444,6 +486,7 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 
 ### Unveröffentlicht
 
+- **Neu:** Consent-Banner als Komponenten `<x-consentlaw::banner />` (lädt `banner.js` von consentLaw mit dem Token) und `<x-consentlaw::cookie-einstellungen />` (Link, der den Banner erneut öffnet) sowie der Schalter `CONSENTLAW_BANNER_ENABLED` (Config `consentlaw.banner.enabled`, Standard an). Eine veröffentlichte Config muss dafür nicht geändert werden.
 - **Neu:** Arbeitsort, Adresse und Gehalt je Stelle: `Job::$workLocation`, `$address` (`JobAddress`), `$baseSalary` (`BaseSalary`); das JSON-LD enthält `jobLocation` als PostalAddress, bei `remote` nur TELECOMMUTE, und `baseSalary`.
 - **Neu:** Jobs für Google for Jobs: `Job::$hiringOrganization`, `$remote`, `$applicantCountries` und die Komponente `<x-consentlaw::jobs-schema>` (siehe „Eigenes Markup“). Das JSON-LD wird in PHP gebaut; zuvor zerstörte die `@context`-Blade-Direktive es.
 - **Fix:** Die Rückleitung des „Neu laden“-Buttons funktioniert auch ohne Referer (z. B.

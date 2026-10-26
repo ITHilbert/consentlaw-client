@@ -13,9 +13,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/banner-komponente`
 - [x] T0 TESTS: `test-writer` — AK1–AK7; rot: 26 (Banner 12, Link 10, README 4), übrige 790 grün (d5a406c).
 - [x] T1 (AK1, AK2, AK3, AK4) [pro] Komponente `banner` + Schalter `banner.enabled` — Tests: `tests/BannerKomponenteTest.php` — 03b1022, GATE grün, NACHWEIS 12/12 grün; „Banner aktiv“ in `Support/BannerFreigabe`
 - [x] T2 (AK5, AK6) [pro] Komponente `cookie-einstellungen` — Tests: `tests/CookieEinstellungenKomponenteTest.php` — GATE grün, NACHWEIS 10/10 grün
-- [ ] T3 (AK7) [junior] README, Changelog „Unveröffentlicht“ — Tests: `tests/BannerReadmeTest.php`
-- [ ] NACHWEIS
+- [x] T3 (AK7) [junior] README, Changelog „Unveröffentlicht“ — Tests: `tests/BannerReadmeTest.php` — GATE grün, 4/4; Zeile in der Konfig-Tabelle vom Moderator ergänzt
+- [x] NACHWEIS: ganze Suite 816/816 grün, Tests seit d5a406c unverändert. Pint `--test` meldet nur `tests/NeuLadenRueckmeldungTest.php` (Altlast, nicht Teil des Features)
 - [ ] REVIEW
 
 ## Stand
-T2 fertig (2026-10-26). Nächster Schritt: T3 CODE (coder-junior).
+T1–T3 fertig, Suite grün (2026-10-26). Nächster Schritt: REVIEW.
