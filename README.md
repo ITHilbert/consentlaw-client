@@ -6,22 +6,8 @@ beliebiges Laravel-Projekt – mit Cache und ausfallsicherem Fallback.
 
 ## Installation
 
-Störungsmeldungen laufen über das Basis-Package `ithilbert/alerts`. Composer löst
-VCS-Repositories nicht transitiv auf. Deshalb muss das Host-Projekt das Repository
-in seiner `composer.json` selbst eintragen, **bevor** das Package installiert wird:
-
-```json
-"repositories": [
-    {
-        "type": "vcs",
-        "url": "https://github.com/ITHilbert/alerts.git"
-    }
-]
-```
-
-Das Repository ist privat. Composer braucht dafür einen GitHub-Token (in `auth.json`
-oder `COMPOSER_AUTH`). Solange `ithilbert/alerts` kein Release-Tag hat, ist `dev-main`
-nötig. Dann installieren:
+Störungsmeldungen laufen über das Basis-Package `ithilbert/alerts` (auf Packagist, das Paket
+verlangt `^1.0`). Ein eigener `repositories`-Eintrag ist nicht nötig. Installieren:
 
 ```bash
 composer require ithilbert/consentlaw-client
@@ -484,7 +470,11 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 
 ## Changelog
 
-### Unveröffentlicht
+### 1.0.1
+
+- `ithilbert/alerts` jetzt `^1.0` statt `dev-main` (1.0.0 verlangte `dev-main`; Projekte konnten alerts dadurch nicht auf `^1.0` stellen). Kein `repositories`-Eintrag für alerts mehr nötig.
+
+### 1.0.0
 
 - **Neu:** Consent-Banner als Komponenten `<x-consentlaw::banner />` (lädt `banner.js` von consentLaw mit dem Token) und `<x-consentlaw::cookie-einstellungen />` (Link, der den Banner erneut öffnet) sowie der Schalter `CONSENTLAW_BANNER_ENABLED` (Config `consentlaw.banner.enabled`, Standard an). Eine veröffentlichte Config muss dafür nicht geändert werden.
 - **Neu:** Arbeitsort, Adresse und Gehalt je Stelle: `Job::$workLocation`, `$address` (`JobAddress`), `$baseSalary` (`BaseSalary`); das JSON-LD enthält `jobLocation` als PostalAddress, bei `remote` nur TELECOMMUTE, und `baseSalary`.
@@ -522,8 +512,7 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
     lassen sich in alerts abschalten, z. B. mit `ALERTS_ENABLED=false`.
   - Die Schlüssel der Meldungen lauten `consentlaw.nicht-lieferbar`, `consentlaw.notstand-veraltet`
     und `consentlaw.token-vermutlich-ungueltig`. Freigabe: `php artisan alerts:reset <schlüssel>`.
-  - Host-`composer.json`: VCS-Repository `https://github.com/ITHilbert/alerts.git` eintragen (privat,
-    GitHub-Token nötig; bis zum Release `dev-main`). Dann `composer update ithilbert/consentlaw-client ithilbert/alerts`.
+  - `composer update ithilbert/consentlaw-client ithilbert/alerts` (alerts kommt von Packagist, ab consentlaw-client 1.0.1 als `^1.0`).
   - Bei veröffentlichter Config (`config/consentlaw.php`) den Block `alerts` löschen.
   - Die veröffentlichte Vorlage `resources/views/vendor/consentlaw/mail/stoerung.blade.php` wird
     nicht mehr genutzt und kann gelöscht werden.
