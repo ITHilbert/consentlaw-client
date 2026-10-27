@@ -60,6 +60,16 @@ Layout intakt:
 </x-consentlaw::jobs>
 ```
 
+Das Attribut `with-schema` von `<x-consentlaw::jobs>` steuert das JSON-LD für Google for Jobs
+(Standard: an). Zum Unterdrücken die gebundene Form verwenden:
+
+```blade
+<x-consentlaw::jobs :with-schema="false" />
+```
+
+Die statische Form `with-schema="false"` unterdrückt das JSON-LD **nicht**: Blade übergibt dann
+den String „false“, und der ist wahr – das JSON-LD wird trotzdem ausgegeben.
+
 Andere Sprache:
 
 ```blade

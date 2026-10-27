@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ITHilbert\ConsentLaw\Data;
 
 use Carbon\CarbonImmutable;
+use ITHilbert\ConsentLaw\Support\MarkdownRenderer;
 
 /**
  * Ein Rechtsdokument (Impressum, Datenschutz, AGB, Cookie-Richtlinie, AVV).
@@ -44,6 +45,14 @@ final readonly class Document
     public function isEmpty(): bool
     {
         return trim($this->content) === '';
+    }
+
+    /** Inhalt als ausgabefertiges HTML (Markdown gerendert, HTML unverändert). */
+    public function contentHtml(): string
+    {
+        return $this->isMarkdown()
+            ? MarkdownRenderer::render($this->content)
+            : $this->content;
     }
 
     public function isMarkdown(): bool
