@@ -7,11 +7,9 @@
 - README: `href`/`onclick` an `<x-consentlaw::cookie-einstellungen>` werden doppelt ausgegeben, das der Komponente gewinnt – dokumentieren oder herausfiltern (Review banner-komponente)
 - Pint `--test` meldet `tests/NeuLadenRueckmeldungTest.php` (seit ca0466d) → test-writer bereinigt
 - `cookie-einstellungen`: Klick-Handler steht inline im `onclick` → bei strenger CSP ohne `unsafe-inline` wirkungslos. Ausweg: Datenattribut + Listener in `banner.js` (consentLaw). it-hilbert.com hat keine CSP (2026-10-26).
-- `Document::contentHtml()` – Markdown/HTML-Unterscheidung in `components/document` und `pages/document` an eine Stelle ziehen (wie AK8 jobs-google-for-jobs)
-- README: `:with-schema="false"` dokumentieren (statisch `with-schema="false"` ist truthy)
-- Package-Jobs-Seite: Controller übergibt `jobs`, View rendert `<x-consentlaw::jobs>` erneut → doppelter Abruf/doppelte Log-Warnung (Review 2 neu-laden-rueckmeldung)
 
 ## Fertig
+- [review-reste](review-reste/plan.md) — `Document::contentHtml()` als einzige Stelle für Rechtstexte, Paket-Jobs-Seite ruft Stellen einmal ab, README `:with-schema="false"` (2026-10-27)
 - [banner-komponente](banner-komponente/plan.md) — `<x-consentlaw::banner />`, Link `<x-consentlaw::cookie-einstellungen />`, Schalter `CONSENTLAW_BANNER_ENABLED`; `banner.js` bleibt bei consentLaw (2026-10-26)
 - [load-command](load-command/plan.md) — Command `consentlaw:load` (2026-10-21)
 - [jobs-google-for-jobs](jobs-google-for-jobs/plan.md) — JobPosting mit Arbeitgeber und Homeoffice, Komponente jobs-schema, `@context` repariert (2026-10-20)
@@ -21,4 +19,3 @@
 - [reload-command](reload-command/plan.md) — `consentlaw:warm` → `consentlaw:reload` (2026-10-20)
 - [neu-laden-app-test](neu-laden-app-test/plan.md) — „Neu laden“ über APP_TEST, auch auf Production, Button oben (2026-10-20)
 - [neu-laden-button](neu-laden-button/plan.md) — Button „Neu laden“ per .env (2026-10-16)
-- [zeilenumbruch-token](zeilenumbruch-token/plan.md) — Zeilenumbrüche & Token-Schutz (2026-10-16)

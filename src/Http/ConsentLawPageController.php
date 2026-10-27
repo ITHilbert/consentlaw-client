@@ -22,7 +22,6 @@ final class ConsentLawPageController
 
         if ($type === 'jobs') {
             return view('consentlaw::pages.jobs', [
-                'jobs' => $this->inhalt->jobs(null, false),
                 'layout' => config('consentlaw.routes.layout'),
             ]);
         }

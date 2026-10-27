@@ -172,8 +172,7 @@ MD;
     public function test_alle_blade_aufrufer_nutzen_den_zentralen_renderer(): void
     {
         $erwartet = [
-            'Resources/views/components/document.blade.php' => 1,
-            'Resources/views/pages/document.blade.php' => 1,
+            'Data/Document.php' => 1, // Document::contentHtml() – einzige Stelle für Rechtstexte (review-reste AK1)
             'Data/Job.php' => 1, // Job::descriptionHtml() – einzige Stelle für Job-Beschreibungen (AK8)
         ];
 

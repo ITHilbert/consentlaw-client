@@ -5,7 +5,7 @@
               <x-consentlaw::impressum />          (Kurzform, siehe unten)
 
     Der Inhalt kommt als HTML oder Markdown von consentLaw. Markdown wird
-    serverseitig und gefiltert gerendert (MarkdownRenderer: rohes HTML und
+    serverseitig und gefiltert gerendert (Document::contentHtml(), Markdown-Filter: rohes HTML und
     unsichere Links fallen weg). HTML (format = html) wird unescaped ausgegeben;
     consentLaw filtert es beim Speichern.
 --}}
@@ -31,9 +31,7 @@
             </p>
         @endif
 
-        {!! $document->isMarkdown()
-                ? \ITHilbert\ConsentLaw\Support\MarkdownRenderer::render($document->content)
-                : $document->content !!}
+        {!! $document->contentHtml() !!}
     </div>
 @else
     {{-- Kein Inhalt verfügbar: bewusst leer, damit kein kaputtes Layout entsteht. --}}
