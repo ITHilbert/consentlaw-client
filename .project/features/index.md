@@ -1,4 +1,5 @@
 ## In Arbeit
+- [review-reste](review-reste/plan.md) — `Document::contentHtml()`, Paket-Jobs-Seite ruft Stellen einmal ab, README `:with-schema="false"`
 
 ## Geplant
 - Nach consentLaw-Task #99: `cookie-einstellungen` auf `window.ConsentLaw.open()` umstellen (alter Name `window.CookieScript` nur in der Übergangszeit)
