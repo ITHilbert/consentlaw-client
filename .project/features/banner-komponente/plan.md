@@ -20,3 +20,9 @@ Spec: [spec.md](spec.md) · Branch: `feature/banner-komponente`
 
 ## Stand
 Fertig, in `main` gemergt (2026-10-26). Abnehmer it-hilbert.com folgt als eigenes Feature.
+
+## Nachtrag 2026-11-05: AK8 Schaltfläche (fix/cookie-link-button)
+- Spec-Lücke aus homepage-betreuung.com (Review consentlaw: FooterTest verbietet href="#"), User: Variante A.
+- GATE grün (16 passed, Paket-Suite 839 Tests, 0 rot).
+- Offener Punkt acadf89f7f2192cea: AK-fremd (Changelog-Einträge 1.0.0 bleiben Historie; Gestaltung der Schaltfläche in den Homepages ist deren Sache — homepage-betreuung.com zieht `footer-link` nach).
+- Review: entfällt (Spec-Lücke, ein Blade-Element, kein Sicherheitsbezug).

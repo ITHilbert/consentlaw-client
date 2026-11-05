@@ -7,11 +7,11 @@ namespace ITHilbert\ConsentLaw\Tests;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * Feature banner-komponente, Aufgabe T2: `<x-consentlaw::cookie-einstellungen />` (AK5, AK6, Randfall 3).
+ * Feature banner-komponente, Aufgabe T2: `<x-consentlaw::cookie-einstellungen />` (AK5, AK6, AK8, Randfall 3).
  *
- * Das Markup des Links (<a href="#"> oder <button>) lässt die Spec frei. Geprüft wird deshalb
- * nur das Verhalten: Aufruf von window.CookieScript.open(), Absicherung gegen fehlendes
- * window.CookieScript und keine Navigation.
+ * AK8: Das Element ist ein <button type="button"> ohne href (kein <a href="#">, kein javascript:).
+ * AK5 gilt für die Schaltfläche: Text, Slot, Attribute, Aufruf von window.CookieScript.open()
+ * nur, wenn window.CookieScript existiert.
  */
 final class CookieEinstellungenKomponenteTest extends AppTestCase
 {
@@ -23,18 +23,18 @@ final class CookieEinstellungenKomponenteTest extends AppTestCase
         $this->konfig('banner.enabled', true);
     }
 
-    /** Das Element (a oder button) samt Inhalt. */
+    /** Die Schaltfläche samt Inhalt. */
     private function element(string $html): string
     {
-        $this->assertSame(1, preg_match('/<(a|button)\b[^>]*>.*?<\/\1>/s', $html, $m), 'Ein Link (<a>) oder <button> in der Ausgabe.');
+        $this->assertSame(1, preg_match('/<button\b[^>]*>.*?<\/button>/s', $html, $m), 'Ein <button> in der Ausgabe.');
 
         return $m[0];
     }
 
-    /** Starttag des Elements. */
+    /** Starttag der Schaltfläche. */
     private function starttag(string $html): string
     {
-        preg_match('/<(?:a|button)\b[^>]*>/', $html, $m);
+        preg_match('/<button\b[^>]*>/', $html, $m);
 
         return $m[0] ?? '';
     }
@@ -79,23 +79,42 @@ final class CookieEinstellungenKomponenteTest extends AppTestCase
         $this->assertStringNotContainsString('window.CookieScript.open()', preg_replace('/window\.CookieScript\s*&&\s*window\.CookieScript\.open\(\)|if\s*\(\s*window\.CookieScript[^)]*\)\s*\{?\s*window\.CookieScript\.open\(\)|typeof\s+window\.CookieScript[^;]*?window\.CookieScript\.open\(\)|window\.CookieScript\s*!==?\s*undefined[^;]*?window\.CookieScript\.open\(\)/', '', $html), 'Kein zweiter, ungeschützter Aufruf.');
     }
 
-    // AK5
-    public function test_klick_verhindert_navigation_und_neuladen(): void
+    // AK8
+    public function test_element_ist_button_type_button(): void
+    {
+        $this->aktiv();
+
+        $start = $this->starttag($this->rendere(self::LINK));
+
+        $this->assertNotSame('', $start, 'Ein <button> in der Ausgabe.');
+        $this->assertSame(1, preg_match('/\stype="button"/', $start), 'type="button" verhindert das Absenden umgebender Formulare.');
+    }
+
+    // AK8
+    public function test_kein_link_und_kein_href_oder_javascript_ziel(): void
     {
         $this->aktiv();
 
         $html = $this->rendere(self::LINK);
+
+        $this->assertSame(1, preg_match('/<button\b/', $html), 'Gegenprobe: Die Schaltfläche wird gerendert.');
+        $this->assertSame(0, preg_match('/<a\b/i', $html), 'Kein <a>-Element.');
+        $this->assertSame(0, preg_match('/\shref\s*=/i', $html), 'Kein href-Attribut.');
+        $this->assertStringNotContainsStringIgnoringCase('javascript:', $html);
+    }
+
+    // AK8
+    public function test_mit_slot_und_attributen_bleibt_es_eine_schaltflaeche_ohne_href(): void
+    {
+        $this->aktiv();
+
+        $html = $this->rendere('<x-consentlaw::cookie-einstellungen class="x" data-test="c">Eigener Text</x-consentlaw::cookie-einstellungen>');
         $start = $this->starttag($html);
 
-        $istButton = str_starts_with($start, '<button') && preg_match('/\stype="button"/', $start) === 1;
-        $verhindert = preg_match('/preventDefault\s*\(\s*\)|return\s+false/', $html) === 1;
-
-        $this->assertTrue($istButton || $verhindert, 'Entweder <button type="button"> oder preventDefault()/return false im Klick-Handler.');
-        // Ein Link darf nicht auf eine echte Adresse zeigen.
-        if (str_starts_with($start, '<a')) {
-            $this->assertSame(1, preg_match('/\shref="(#|javascript:[^"]*)"/', $start), 'Link ohne echtes Ziel (href="#").');
-            $this->assertTrue($verhindert, 'Bei einem Link verhindert der Handler das Springen zum Seitenanfang.');
-        }
+        $this->assertSame(1, preg_match('/\stype="button"/', $start));
+        $this->assertSame(0, preg_match('/<a\b/i', $html));
+        $this->assertSame(0, preg_match('/\shref\s*=/i', $html));
+        $this->assertStringNotContainsStringIgnoringCase('javascript:', $html);
     }
 
     // AK5

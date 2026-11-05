@@ -131,7 +131,7 @@ Die Komponente lädt `banner.js` von consentLaw (`{CONSENTLAW_URL}/banner.js?tok
 `defer`) und verwendet dafür den vorhandenen `CONSENTLAW_TOKEN`. Ohne Token bleibt die
 Ausgabe leer; es findet auch keine API-Abfrage statt.
 
-Ein Link, der den Banner erneut öffnet, z. B. im Footer:
+Eine Schaltfläche (`<button type="button">`, kein Link), die den Banner erneut öffnet, z. B. im Footer:
 
 ```blade
 <footer>
@@ -144,7 +144,7 @@ Ein Link, der den Banner erneut öffnet, z. B. im Footer:
 </footer>
 ```
 
-Ist der Banner nicht aktiv, bleibt die Ausgabe des Links ebenfalls leer.
+Ist der Banner nicht aktiv, bleibt die Ausgabe der Schaltfläche ebenfalls leer. Der Browser-Standardstil eines `<button>` bringt Rahmen und Hintergrund mit; über die übergebene `class` lässt sie sich wie ein Link gestalten.
 
 Mit dem Schalter `CONSENTLAW_BANNER_ENABLED` schaltet man beide Komponenten ab, z. B.
 solange noch ein anderes Consent-Tool läuft. Der Standard ist eingeschaltet; der Wert
@@ -154,7 +154,7 @@ steht in der Konfiguration unter `consentlaw.banner.enabled`.
 CONSENTLAW_BANNER_ENABLED=false
 ```
 
-**Hinweis:** Der Link nutzt einen Inline-Klick-Handler. Bei einer Content-Security-Policy
+**Hinweis:** Die Schaltfläche nutzt einen Inline-Klick-Handler. Bei einer Content-Security-Policy
 ohne `unsafe-inline` wirkt er nicht.
 
 ## Caching & Ausfallsicherheit
@@ -479,6 +479,10 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 ```
 
 ## Changelog
+
+### Unreleased
+
+- `<x-consentlaw::cookie-einstellungen />` rendert eine Schaltfläche (`<button type="button">`) statt `<a href="#">`; Text, Slot und Attribute wie `class` bleiben. Wer den Link per CSS gestaltet hat, passt die `class` an (Browser-Standardstil eines `<button>`).
 
 ### 1.0.1
 
