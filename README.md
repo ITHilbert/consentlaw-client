@@ -480,12 +480,11 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 
 ## Changelog
 
-### Unreleased
+### 1.1.0 (2026-11-05)
 
-- `<x-consentlaw::cookie-einstellungen />` rendert eine Schaltfläche (`<button type="button">`) statt `<a href="#">`; Text, Slot und Attribute wie `class` bleiben. Wer den Link per CSS gestaltet hat, passt die `class` an (Browser-Standardstil eines `<button>`).
-
-### 1.0.1
-
+- **Neu:** `Document::contentHtml()` liefert ausgabefertiges HTML (Markdown gerendert, HTML unverändert); die Komponenten- und Seiten-Views nutzen nur noch diese Methode.
+- **Fix:** `<x-consentlaw::cookie-einstellungen />` rendert eine Schaltfläche (`<button type="button">`) statt `<a href="#">`; Text, Slot und Attribute wie `class` bleiben. Wer den Link per CSS gestaltet hat, passt die `class` an (Browser-Standardstil eines `<button>`, z. B. `cursor`).
+- **Fix:** Die Paket-Jobs-Seite ruft die Stellen je Aufruf nur einmal ab; eine Störung steht nur einmal im Log.
 - `ithilbert/alerts` jetzt `^1.0` statt `dev-main` (1.0.0 verlangte `dev-main`; Projekte konnten alerts dadurch nicht auf `^1.0` stellen). Kein `repositories`-Eintrag für alerts mehr nötig.
 
 ### 1.0.0
