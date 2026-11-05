@@ -14,6 +14,7 @@ Eine Homepage bindet den Consent-Banner von consentLaw mit einer Zeile im Layout
 - **AK4 — Kein API-Aufruf:** Gegeben AK1, AK2 oder AK3, wenn die Komponente gerendert wird, dann ruft der Client die consentLaw-API nicht auf (kein HTTP-Request, kein Cache-, kein Fallback-Zugriff).
 - **AK5 — Link „Cookie-Einstellungen“:** Gegeben der Banner ist laut AK1 aktiv, wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann entsteht ein Link mit dem Text „Cookie-Einstellungen“, der beim Klick `window.CookieScript.open()` aufruft, sofern `window.CookieScript` existiert, und die Seite weder neu lädt noch zum Seitenanfang springt. Mit Slot ersetzt der Slot den Text; übergebene Attribute (z. B. `class`) landen am Link.
 - **AK6 — Link nur bei aktivem Banner:** Gegeben kein Token (AK2) oder `CONSENTLAW_BANNER_ENABLED=false` (AK3), wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann ist die Ausgabe leer.
+- **AK8 — Schaltfläche statt Platzhalter-Link:** Gegeben der Banner ist laut AK1 aktiv, wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann ist das Element ein `<button type="button">` ohne `href`-Attribut (kein `<a href="#">`, kein `javascript:`); AK5 gilt für die Schaltfläche (Text, Slot, Attribute wie `class`, Aufruf von `window.CookieScript.open()` nur, wenn vorhanden). *(2026-11-05 ergänzt, User: homepage-betreuung.com verbietet Platzhalter-Links im Footer; eine Aktion ohne Ziel ist semantisch eine Schaltfläche.)*
 - **AK7 — README:** Die README beschreibt beide Komponenten, den Schalter `CONSENTLAW_BANNER_ENABLED` und dass `banner.js` von consentLaw geladen wird.
 
 ## Randfälle
@@ -30,4 +31,4 @@ Eine Homepage bindet den Consent-Banner von consentLaw mit einer Zeile im Layout
 ## Entscheidungsspielraum
 - Keine neuen Composer- oder npm-Pakete.
 - Anonyme Blade-Komponenten wie die bestehenden; ob für die Bedingung „Banner aktiv“ (AK1–AK3, AK6) eine kleine Support-Klasse entsteht, entscheidet der Coder. Die Bedingung steht aber nur an einer Stelle.
-- Markup des Links (`<a href="#">` oder `<button>`) frei, solange AK5 erfüllt ist.
+- ~~Markup des Links (`<a href="#">` oder `<button>`) frei, solange AK5 erfüllt ist.~~ Ersetzt durch AK8 (2026-11-05).
