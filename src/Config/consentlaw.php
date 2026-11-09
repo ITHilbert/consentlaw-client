@@ -99,6 +99,18 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Jobs
+    |---------------------------------------------------------------------------
+    | initiativ_email: Ohne Stelle und ohne Slot nennt <x-consentlaw::jobs /> diese
+    | Adresse für Initiativbewerbungen (mailto-Link). null = kein Satz. Das
+    | Attribut `initiativ-email` der Komponente geht vor.
+    */
+    'jobs' => [
+        'initiativ_email' => env('CONSENTLAW_JOBS_INITIATIV_EMAIL'),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | „Neu laden“-Button (zentraler Hilfen-Schalter APP_TEST, standardmässig AUS)
     |---------------------------------------------------------------------------
     | Zeigt über den Komponenten einen Button, der den Inhalt sofort frisch von
