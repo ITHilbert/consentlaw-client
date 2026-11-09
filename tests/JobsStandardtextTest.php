@@ -181,6 +181,26 @@ final class JobsStandardtextTest extends AppTestCase
     }
 
     // AK2
+    public function test_initiativ_satz_ist_uebersetzbar(): void
+    {
+        $this->keineStellen();
+        $this->konfig('jobs.initiativ_email', self::ADRESSE);
+        // JSON-Übersetzung wie in einer App (lang/de.json); addLines() scheitert am Punkt im Schlüssel.
+        $ordner = $this->basis.'/lang-test';
+        mkdir($ordner);
+        file_put_contents($ordner.'/de.json', (string) json_encode([
+            'Initiativbewerbungen gern an :adresse.' => 'Speculative applications to :adresse please.',
+        ]));
+        $this->app['translator']->addJsonPath($ordner);
+
+        $absatz = $this->leerAbsatz($this->rendere('<x-consentlaw::jobs />'));
+
+        $this->assertStringContainsString('Speculative applications to '.self::ADRESSE.' please.', $this->text($absatz));
+        $this->assertStringNotContainsString($this->initiativSatz(self::ADRESSE), $this->text($absatz), 'Der deutsche Satz ist ersetzt.');
+        $this->assertMailtoLink($absatz, self::ADRESSE);
+    }
+
+    // AK2
     public function test_initiativ_satz_aus_der_umgebungsvariable(): void
     {
         $this->setzeUmgebung('CONSENTLAW_JOBS_INITIATIV_EMAIL', self::ADRESSE);
