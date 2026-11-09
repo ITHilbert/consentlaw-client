@@ -20,7 +20,8 @@ final class ReviewResteTest extends AppTestCase
 
     private const HTML = '<h2>Titel</h2><p>Text mit <em>HTML</em> &amp; mehr.</p>';
 
-    private const LEERTEXT = 'Zurzeit sind keine Stellen ausgeschrieben.';
+    // Seit jobs-standardtext AK7 zeigt die Paket-Seite den Standardtext der Komponente.
+    private const LEERTEXT = 'Zurzeit sind keine offenen Stellen ausgeschrieben.';
 
     private function doc(string $inhalt, ?string $format): Document
     {
