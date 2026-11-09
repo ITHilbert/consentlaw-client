@@ -492,6 +492,11 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 
 ## Changelog
 
+### 1.2.0 (2026-11-09)
+
+- **Neu:** `<x-consentlaw::jobs />` gibt ohne Stelle und ohne Slot den Standardtext „Zurzeit sind keine offenen Stellen ausgeschrieben.“ aus, optional mit Satz zur Initiativbewerbung (`consentlaw.jobs.initiativ_email` bzw. `CONSENTLAW_JOBS_INITIATIV_EMAIL`, Attribut `initiativ-email`). Ein nicht leerer Slot ersetzt beides. Die Paket-Jobs-Seite zeigt den Standardtext. Wer bisher einen eigenen Slot nutzt, ändert nichts.
+- **Sicherheit:** Enthält die Anforderungen von 1.1.1 (`league/commonmark` ab 2.10.2, siehe unten).
+
 ### 1.1.0 (2026-11-05)
 
 - **Neu:** `Document::contentHtml()` liefert ausgabefertiges HTML (Markdown gerendert, HTML unverändert); die Komponenten- und Seiten-Views nutzen nur noch diese Methode.
