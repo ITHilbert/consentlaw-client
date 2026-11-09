@@ -51,12 +51,24 @@ Die Inhalte landen in **deinem** Layout, unter **deiner** URL:
 <x-consentlaw::jobs />
 ```
 
-Ist kein Inhalt verfügbar, rendert die Komponente den Slot – so bleibt das
-Layout intakt:
+Ist kein Inhalt verfügbar, rendert `<x-consentlaw::jobs>` ohne eigenen Slot den Standardtext
+`Zurzeit sind keine offenen Stellen ausgeschrieben.` in `<p class="consentlaw-jobs__leer">`
+(übersetzbar über `__()`, Attribute der Komponente wie `class` gelten dort). Kein JSON-LD im leeren Fall.
+
+Optional folgt der Satz `Initiativbewerbungen gern an <Adresse>.` (Adresse als `mailto:`-Link). Die
+Adresse kommt aus der Konfiguration `consentlaw.jobs.initiativ_email` (Umgebungsvariable
+`CONSENTLAW_JOBS_INITIATIV_EMAIL`, Standard `null`) oder aus dem Attribut `initiativ-email`; das
+Attribut geht vor. Ohne gültige Adresse entfällt der Satz:
+
+```blade
+<x-consentlaw::jobs initiativ-email="jobs@example.de" />
+```
+
+Ein nicht leerer Slot ersetzt den Standardtext samt Initiativ-Satz (ein leerer Slot zählt als kein Slot):
 
 ```blade
 <x-consentlaw::jobs>
-    <p>Zurzeit sind keine Stellen ausgeschrieben.</p>
+    <p>Eigener Hinweis, wenn keine Stellen offen sind.</p>
 </x-consentlaw::jobs>
 ```
 
@@ -341,7 +353,7 @@ führt nicht zu einer Fehlerseite; die Seite zeigt dann den bisherigen Stand.
   ohne API-Aufruf wie bei „kein Inhalt verfügbar“ (leer bzw. Slot) und schreiben eine Warnung ins Log;
   die Seite antwortet mit 200. Die PHP-API (`ConsentLaw::document()`, `jobs()`) wirft weiterhin
   `MissingTokenException`. Die optionalen Package-Seiten verhalten sich ebenso: Dokument-Seite 404
-  (wie fehlender Inhalt), Jobs-Seite 200 mit leerer Liste.
+  (wie fehlender Inhalt), Jobs-Seite 200 mit dem Standardtext „keine offenen Stellen“.
 - **Darstellung:** dezentes Entwicklungswerkzeug (kleiner Button mit gestricheltem Rand); das
   Partial bringt einen eigenen `<style>`-Block mit niedriger Spezifität mit, das Formular trägt
   die Klasse `consentlaw-refresh` und lässt sich im Seiten-CSS überschreiben. Eigenes Markup
@@ -479,6 +491,11 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 ```
 
 ## Changelog
+
+### 1.2.0 (2026-11-09)
+
+- **Neu:** `<x-consentlaw::jobs />` gibt ohne Stelle und ohne Slot den Standardtext „Zurzeit sind keine offenen Stellen ausgeschrieben.“ aus, optional mit Satz zur Initiativbewerbung (`consentlaw.jobs.initiativ_email` bzw. `CONSENTLAW_JOBS_INITIATIV_EMAIL`, Attribut `initiativ-email`). Ein nicht leerer Slot ersetzt beides. Die Paket-Jobs-Seite zeigt den Standardtext. Wer bisher einen eigenen Slot nutzt, ändert nichts.
+- **Sicherheit:** Enthält die Anforderungen von 1.1.1 (`league/commonmark` ab 2.10.2, siehe unten).
 
 ### 1.1.0 (2026-11-05)
 

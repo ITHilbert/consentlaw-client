@@ -9,6 +9,7 @@
 - `cookie-einstellungen`: Klick-Handler steht inline im `onclick` → bei strenger CSP ohne `unsafe-inline` wirkungslos. Ausweg: Datenattribut + Listener in `banner.js` (consentLaw). it-hilbert.com hat keine CSP (2026-10-26).
 
 ## Fertig
+- [jobs-standardtext](jobs-standardtext/plan.md) — #1008 `<x-consentlaw::jobs />`: Standardtext und optionaler Initiativ-Satz ohne Stelle und ohne Slot (2026-11-09, 1.2.0)
 - [review-reste](review-reste/plan.md) — `Document::contentHtml()` als einzige Stelle für Rechtstexte, Paket-Jobs-Seite ruft Stellen einmal ab, README `:with-schema="false"` (2026-10-27)
 - [banner-komponente](banner-komponente/plan.md) — `<x-consentlaw::banner />`, Link `<x-consentlaw::cookie-einstellungen />`, Schalter `CONSENTLAW_BANNER_ENABLED`; `banner.js` bleibt bei consentLaw (2026-10-26)
 - [load-command](load-command/plan.md) — Command `consentlaw:load` (2026-10-21)

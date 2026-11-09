@@ -6,7 +6,5 @@
 @section('content')
     <h1>{{ __('Stellenangebote') }}</h1>
 
-    <x-consentlaw::jobs>
-        <p>{{ __('Zurzeit sind keine Stellen ausgeschrieben.') }}</p>
-    </x-consentlaw::jobs>
+    <x-consentlaw::jobs />
 @endsection
