@@ -599,6 +599,17 @@ Verlangt `league/commonmark` ab 2.10.2. Ältere Versionen haben einen DoS in der
 - `consentlaw:load` endet bei „nicht veröffentlicht“ mit Exit-Code 0, außer alle Typen
   sind 404 (Token prüfen).
 
+## Tests
+
+Die Tests laufen ohne Projekt-Datenbank (`phpunit.xml` setzt SQLite `:memory:` fest). Im Workspace
+`packages_dev` aus dem Host-Ordner, ein Befehl:
+
+```bash
+php vendor/bin/phpunit -c packages/consentlaw-client/phpunit.xml
+```
+
+Eigenständig im Paket: `composer install && vendor/bin/phpunit`.
+
 ## Lizenz
 
 MIT – IT-Hilbert GmbH
