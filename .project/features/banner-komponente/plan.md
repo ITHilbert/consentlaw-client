@@ -26,3 +26,7 @@ Fertig, in `main` gemergt (2026-10-26). Abnehmer it-hilbert.com folgt als eigene
 - GATE grün (16 passed, Paket-Suite 839 Tests, 0 rot).
 - Offener Punkt acadf89f7f2192cea: AK-fremd (Changelog-Einträge 1.0.0 bleiben Historie; Gestaltung der Schaltfläche in den Homepages ist deren Sache — homepage-betreuung.com zieht `footer-link` nach).
 - Review: entfällt (Spec-Lücke, ein Blade-Element, kein Sicherheitsbezug).
+
+Offener Punkt a97c3b0111326aa17: AK-fremd (Changelog 1.2.0→1.2.2: Tag 1.2.1 existiert ohne Eintrag, 1.2.2 ist die nächste Patch-Version; AK9 verlangt eine mitgelieferte Stilregel, ein <style>-Block erfüllt sie, CSP-Hinweis zur README ist eine Kann-Ergänzung, kein AK)
+Echtlauf: entfällt (reine Blade-Ausgabe, Paket-Suite 882 Tests grün; Darstellung im Host nicht prüfbar ohne Browser-Host)
+Review: entfällt (Bugfix ohne Sicherheitsbezug, <50 Zeilen Produktivcode)

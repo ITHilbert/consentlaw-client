@@ -156,7 +156,7 @@ Eine Schaltfläche (`<button type="button">`, kein Link), die den Banner erneut 
 </footer>
 ```
 
-Ist der Banner nicht aktiv, bleibt die Ausgabe der Schaltfläche ebenfalls leer. Der Browser-Standardstil eines `<button>` bringt Rahmen und Hintergrund mit; über die übergebene `class` lässt sie sich wie ein Link gestalten.
+Ist der Banner nicht aktiv, bleibt die Ausgabe der Schaltfläche ebenfalls leer. Die Komponente bringt einen Stil mit, der die Schaltfläche wie einen Text-Link darstellt (einmal je Seite); Klassen des Hosts gehen vor und können ihn überschreiben.
 
 Mit dem Schalter `CONSENTLAW_BANNER_ENABLED` schaltet man beide Komponenten ab, z. B.
 solange noch ein anderes Consent-Tool läuft. Der Standard ist eingeschaltet; der Wert
@@ -491,6 +491,10 @@ $this->app->singleton(FallbackStore::class, DatabaseFallbackStore::class);
 ```
 
 ## Changelog
+
+### 1.2.2 (2026-11-17)
+
+- **Fix:** Die Schaltfläche von `<x-consentlaw::cookie-einstellungen />` sieht ohne Host-Regel wie ein Text-Link aus; Klassen des Hosts gehen vor.
 
 ### 1.2.0 (2026-11-09)
 
