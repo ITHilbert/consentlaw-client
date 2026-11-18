@@ -5,7 +5,7 @@ Spec: [spec.md](spec.md) · Branch: `feature/banner-komponente`
 ## Hinweise
 - Komponenten unter `src/Resources/views/components/` (Namespace `consentlaw`, schon registriert im `ConsentLawServiceProvider`).
 - Schalter in `src/Config/consentlaw.php` als neuer Block `banner` mit Kommentar im Stil der übrigen Blöcke.
-- consentLaw-Task #99 (https://dashboard.lan/agentdashboard/tasks/99): `window.CookieScript` → `window.ConsentLaw`, alter Name bleibt in der Übergangszeit. Nach Erledigung zieht `cookie-einstellungen` auf `window.ConsentLaw.open()` um (eigener Bugfix/Feature).
+- consentLaw-Task #99 (https://dashboard.lan/agentdashboard/tasks/99): `window.CookieScript` → `window.ConsentLaw`. Umgesetzt mit Task #1568 (2026-11-18): `cookie-einstellungen` ruft `window.ConsentLaw.open()` auf, der alte Alias ist abgelöst.
 - `CONSENTLAW_BANNER_ENABLED=` (leer) ist in der Spec offen; über `env()` ergibt das `''` → ausgeschaltet. Bewusst nicht geregelt (Annahme Moderator 2026-10-26).
 - Abnehmer danach: it-hilbert.com (eigenes Feature, bindet die Komponente ins Layout ein und ersetzt den toten Usercentrics-Link im Footer).
 
@@ -30,3 +30,5 @@ Fertig, in `main` gemergt (2026-10-26). Abnehmer it-hilbert.com folgt als eigene
 Offener Punkt a97c3b0111326aa17: AK-fremd (Changelog 1.2.0→1.2.2: Tag 1.2.1 existiert ohne Eintrag, 1.2.2 ist die nächste Patch-Version; AK9 verlangt eine mitgelieferte Stilregel, ein <style>-Block erfüllt sie, CSP-Hinweis zur README ist eine Kann-Ergänzung, kein AK)
 Echtlauf: entfällt (reine Blade-Ausgabe, Paket-Suite 882 Tests grün; Darstellung im Host nicht prüfbar ohne Browser-Host)
 Review: entfällt (Bugfix ohne Sicherheitsbezug, <50 Zeilen Produktivcode)
+
+Stand 2026-11-18 (#1568): Umstellung auf window.ConsentLaw (Spec-Lücke/Anpassung). Review: entfällt (Text/Umbenennung ohne neues Verhalten). Echtlauf: entfällt (nur Attributwert im Blade, Test rendert HTML; Klick-Nachweis folgt in den Websites). Abweichung a5d8886a2978deb32: keine. Offener Punkt a5d8886a2978deb32: AK-fremd (GATE-Runner nutzt Host-phpunit.xml ohne Paket-Bootstrap, ROT 0 Tests; Nachweis per -c packages/consentlaw-client/phpunit.xml: 883 Tests grün).

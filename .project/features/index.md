@@ -1,7 +1,6 @@
 ## In Arbeit
 
 ## Geplant
-- Nach consentLaw-Task #99: `cookie-einstellungen` auf `window.ConsentLaw.open()` umstellen (alter Name `window.CookieScript` nur in der Übergangszeit)
 - `CONSENTLAW_BANNER_ENABLED=off`/`no` lassen den Banner an (`env()` wandelt nur `false`/`(false)`); ggf. per `filter_var(…, FILTER_VALIDATE_BOOL)` (Review banner-komponente)
 - Token nur aus Leerzeichen gilt als gesetzt → `banner.js?token=%20…`; betrifft auch die Rechtstext-Abrufe – Token zentral trimmen (Review banner-komponente)
 - README: `href`/`onclick` an `<x-consentlaw::cookie-einstellungen>` werden doppelt ausgegeben, das der Komponente gewinnt – dokumentieren oder herausfiltern (Review banner-komponente)
