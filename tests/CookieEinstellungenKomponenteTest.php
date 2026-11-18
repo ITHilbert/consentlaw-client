@@ -10,8 +10,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * Feature banner-komponente, Aufgabe T2: `<x-consentlaw::cookie-einstellungen />` (AK5, AK6, AK8, Randfall 3).
  *
  * AK8: Das Element ist ein <button type="button"> ohne href (kein <a href="#">, kein javascript:).
- * AK5 gilt für die Schaltfläche: Text, Slot, Attribute, Aufruf von window.CookieScript.open()
- * nur, wenn window.CookieScript existiert.
+ * AK5 gilt für die Schaltfläche: Text, Slot, Attribute, Aufruf von window.ConsentLaw.open()
+ * nur, wenn window.ConsentLaw existiert.
  */
 final class CookieEinstellungenKomponenteTest extends AppTestCase
 {
@@ -56,27 +56,39 @@ final class CookieEinstellungenKomponenteTest extends AppTestCase
     }
 
     // AK5
-    public function test_klick_ruft_window_cookiescript_open_auf(): void
+    public function test_klick_ruft_window_consentlaw_open_auf(): void
     {
         $this->aktiv();
 
         $html = $this->rendere(self::LINK);
 
-        $this->assertStringContainsString('window.CookieScript.open()', $html);
+        $this->assertStringContainsString('window.ConsentLaw.open()', $html);
     }
 
     // AK5, Randfall 3
-    public function test_aufruf_ist_gegen_fehlendes_window_cookiescript_abgesichert(): void
+    public function test_aufruf_ist_gegen_fehlendes_window_consentlaw_abgesichert(): void
     {
         $this->aktiv();
 
         $html = $this->rendere(self::LINK);
 
         $this->assertSame(1, preg_match(
-            '/(window\.CookieScript\s*&&\s*window\.CookieScript\.open\(\)|if\s*\(\s*window\.CookieScript\s*\)\s*\{?\s*window\.CookieScript\.open\(\)|window\.CookieScript\s*\?\.\s*open\(\)|window\.CookieScript\s*!==?\s*undefined\s*(&&|\))\s*\{?\s*window\.CookieScript\.open\(\)|typeof\s+window\.CookieScript\s*!==?\s*[\'"]undefined[\'"]\s*(&&|\))\s*\{?\s*window\.CookieScript\.open\(\))/',
+            '/(window\.ConsentLaw\s*&&\s*window\.ConsentLaw\.open\(\)|if\s*\(\s*window\.ConsentLaw\s*\)\s*\{?\s*window\.ConsentLaw\.open\(\)|window\.ConsentLaw\s*\?\.\s*open\(\)|window\.ConsentLaw\s*!==?\s*undefined\s*(&&|\))\s*\{?\s*window\.ConsentLaw\.open\(\)|typeof\s+window\.ConsentLaw\s*!==?\s*[\'"]undefined[\'"]\s*(&&|\))\s*\{?\s*window\.ConsentLaw\.open\(\))/',
             $html,
-        ), 'open() nur aufrufen, wenn window.CookieScript existiert (kein Aufruf ohne Prüfung).');
-        $this->assertStringNotContainsString('window.CookieScript.open()', preg_replace('/window\.CookieScript\s*&&\s*window\.CookieScript\.open\(\)|if\s*\(\s*window\.CookieScript[^)]*\)\s*\{?\s*window\.CookieScript\.open\(\)|typeof\s+window\.CookieScript[^;]*?window\.CookieScript\.open\(\)|window\.CookieScript\s*!==?\s*undefined[^;]*?window\.CookieScript\.open\(\)/', '', $html), 'Kein zweiter, ungeschützter Aufruf.');
+        ), 'open() nur aufrufen, wenn window.ConsentLaw existiert (kein Aufruf ohne Prüfung).');
+        $this->assertStringNotContainsString('window.ConsentLaw.open()', preg_replace('/window\.ConsentLaw\s*&&\s*window\.ConsentLaw\.open\(\)|if\s*\(\s*window\.ConsentLaw[^)]*\)\s*\{?\s*window\.ConsentLaw\.open\(\)|typeof\s+window\.ConsentLaw[^;]*?window\.ConsentLaw\.open\(\)|window\.ConsentLaw\s*!==?\s*undefined[^;]*?window\.ConsentLaw\.open\(\)/', '', $html), 'Kein zweiter, ungeschützter Aufruf.');
+    }
+
+    // AK5, Randfall 3
+    public function test_html_enthaelt_kein_window_cookiescript_mehr(): void
+    {
+        $this->aktiv();
+
+        $html = $this->rendere(self::LINK);
+
+        $this->assertStringContainsString('window.ConsentLaw.open()', $html, 'Gegenprobe: Der neue Aufruf ist da.');
+        // einzelwort: Die Komponenten-Ausgabe ist nur Style und Button, der Begriff steht dort sonst nie.
+        $this->assertStringNotContainsString('window.CookieScript', $html);
     }
 
     // AK8
