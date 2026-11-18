@@ -5,23 +5,23 @@ Eine Homepage bindet den Consent-Banner von consentLaw mit einer Zeile im Layout
 
 ## Hintergrund
 - consentLaw liefert den Banner als `<script src="{CONSENTLAW_URL}/banner.js?token={api_token}" defer></script>` aus (Snippet im consentLaw-Dashboard, Modul `banner`). Der Token ist derselbe Domain-Token wie für die Rechtstexte (`CONSENTLAW_TOKEN`).
-- `banner.js` stellt `window.CookieScript.open()` bereit. Ein Aufruf vor dem Laden der Banner-Einstellungen wird vorgemerkt und danach ausgeführt.
+- `banner.js` stellt `window.ConsentLaw.open()` bereit (der alte Alias `window.CookieScript` ist abgelöst, Task #1568, 2026-11-18; Spec-Lücke: Umbenennung, kein neues Verhalten).
 
 ## Akzeptanzkriterien
 - **AK1 — Script-Tag:** Gegeben `CONSENTLAW_TOKEN` ist gesetzt und der Banner ist eingeschaltet, wenn `<x-consentlaw::banner />` gerendert wird, dann enthält die Ausgabe genau ein `<script>` mit `src="{base_url}/banner.js?token={token}"` und dem Attribut `defer`. `base_url` steht ohne abschließenden `/` (auch wenn `CONSENTLAW_URL` mit `/` endet), der Token ist URL-kodiert und HTML-maskiert.
 - **AK2 — Ohne Token nichts:** Gegeben `CONSENTLAW_TOKEN` ist leer oder nicht gesetzt, wenn `<x-consentlaw::banner />` gerendert wird, dann ist die Ausgabe leer (kein Script, kein Fehler, keine Exception).
 - **AK3 — Schalter:** Gegeben `CONSENTLAW_BANNER_ENABLED=false`, wenn `<x-consentlaw::banner />` gerendert wird, dann ist die Ausgabe leer, auch bei gesetztem Token. Ist die Variable nicht gesetzt, ist der Banner eingeschaltet. Der Wert steht in der Konfiguration unter `consentlaw.banner.enabled`.
 - **AK4 — Kein API-Aufruf:** Gegeben AK1, AK2 oder AK3, wenn die Komponente gerendert wird, dann ruft der Client die consentLaw-API nicht auf (kein HTTP-Request, kein Cache-, kein Fallback-Zugriff).
-- **AK5 — Link „Cookie-Einstellungen“:** Gegeben der Banner ist laut AK1 aktiv, wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann entsteht ein Link mit dem Text „Cookie-Einstellungen“, der beim Klick `window.CookieScript.open()` aufruft, sofern `window.CookieScript` existiert, und die Seite weder neu lädt noch zum Seitenanfang springt. Mit Slot ersetzt der Slot den Text; übergebene Attribute (z. B. `class`) landen am Link.
+- **AK5 — Link „Cookie-Einstellungen“:** Gegeben der Banner ist laut AK1 aktiv, wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann entsteht ein Link mit dem Text „Cookie-Einstellungen“, der beim Klick `window.ConsentLaw.open()` aufruft, sofern `window.ConsentLaw` existiert, und die Seite weder neu lädt noch zum Seitenanfang springt. Mit Slot ersetzt der Slot den Text; übergebene Attribute (z. B. `class`) landen am Link.
 - **AK6 — Link nur bei aktivem Banner:** Gegeben kein Token (AK2) oder `CONSENTLAW_BANNER_ENABLED=false` (AK3), wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann ist die Ausgabe leer.
-- **AK8 — Schaltfläche statt Platzhalter-Link:** Gegeben der Banner ist laut AK1 aktiv, wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann ist das Element ein `<button type="button">` ohne `href`-Attribut (kein `<a href="#">`, kein `javascript:`); AK5 gilt für die Schaltfläche (Text, Slot, Attribute wie `class`, Aufruf von `window.CookieScript.open()` nur, wenn vorhanden). *(2026-11-05 ergänzt, User: homepage-betreuung.com verbietet Platzhalter-Links im Footer; eine Aktion ohne Ziel ist semantisch eine Schaltfläche.)*
+- **AK8 — Schaltfläche statt Platzhalter-Link:** Gegeben der Banner ist laut AK1 aktiv, wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann ist das Element ein `<button type="button">` ohne `href`-Attribut (kein `<a href="#">`, kein `javascript:`); AK5 gilt für die Schaltfläche (Text, Slot, Attribute wie `class`, Aufruf von `window.ConsentLaw.open()` nur, wenn vorhanden). *(2026-11-05 ergänzt, User: homepage-betreuung.com verbietet Platzhalter-Links im Footer; eine Aktion ohne Ziel ist semantisch eine Schaltfläche.)*
 - **AK9 — Eigener Linkstil (#1417):** Gegeben der Banner ist laut AK1 aktiv, wenn `<x-consentlaw::cookie-einstellungen />` gerendert wird, dann liefert die Komponente eine Stilregel mit, die die Schaltfläche ohne Zutun des Hosts wie einen Text-Link darstellt (`background: none`, `border: 0`, `padding: 0`, `font: inherit`, `color: inherit`, `cursor: pointer`). Die Regel hat die Spezifität null (`:where(...)`), sodass Klassen des Hosts sie überschreiben; mehrere Komponenten auf einer Seite liefern die Regel nur einmal. Ausgeschaltet (AK2, AK3) bleibt die Ausgabe leer, auch ohne Stilregel. *(2026-11-17 ergänzt, Spec-Lücke aus Task #1417.)*
 - **AK7 — README:** Die README beschreibt beide Komponenten, den Schalter `CONSENTLAW_BANNER_ENABLED` und dass `banner.js` von consentLaw geladen wird.
 
 ## Randfälle
 - **Randfall 1:** `CONSENTLAW_URL` mit abschließendem `/` → kein doppelter `/` vor `banner.js` (AK1).
 - **Randfall 2:** Komponente zweimal im Layout → zweimal ausgegeben. Verhindern ist Sache des Layouts, nicht der Komponente.
-- **Randfall 3:** Link geklickt, bevor `banner.js` geladen ist → `window.CookieScript` fehlt, der Klick tut nichts und erzeugt keinen JavaScript-Fehler (AK5).
+- **Randfall 3:** Link geklickt, bevor `banner.js` geladen ist → `window.ConsentLaw` fehlt, der Klick tut nichts und erzeugt keinen JavaScript-Fehler (AK5).
 
 ## Nicht-Ziele
 - `banner.js` oder die Banner-Einstellungen über die eigene Domain ausliefern (Proxy) – vom User verworfen (2026-10-26).

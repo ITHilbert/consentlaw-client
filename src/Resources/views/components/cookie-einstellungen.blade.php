@@ -3,5 +3,5 @@
 @once
 <style>:where(button[data-consentlaw-cookie-einstellungen]) { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }</style>
 @endonce
-<button type="button" data-consentlaw-cookie-einstellungen onclick="window.CookieScript && window.CookieScript.open();" {{ $attributes }}>{{ $slot->isEmpty() ? 'Cookie-Einstellungen' : $slot }}</button>
+<button type="button" data-consentlaw-cookie-einstellungen onclick="window.ConsentLaw && window.ConsentLaw.open();" {{ $attributes }}>{{ $slot->isEmpty() ? 'Cookie-Einstellungen' : $slot }}</button>
 @endif
